@@ -1,0 +1,14 @@
+import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import DashboardLayout from "../../layouts/DashboardLayout";
+import { deleteUser, getAdminUsers, getPendingProfiles, getReports, resolveReport, verifyProfile } from "../../services/admin.service";
+
+function Admin() {
+  const [users, setUsers] = useState([]); const [profiles, setProfiles] = useState([]); const [reports, setReports] = useState([]); const [loading, setLoading] = useState(true);
+  const load = async () => { try { const [usersResponse, profilesResponse, reportsResponse] = await Promise.all([getAdminUsers(), getPendingProfiles(), getReports()]); setUsers(usersResponse.data); setProfiles(profilesResponse.data); setReports(reportsResponse.data); } catch (error) { toast.error(error.response?.data?.message || "Unable to load admin data"); } finally { setLoading(false); } };
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load(); }, []);
+  const run = async (request, message) => { try { await request(); await load(); toast.success(message); } catch (error) { toast.error(error.response?.data?.message || "Admin action failed"); } };
+  return <DashboardLayout><div className="space-y-6"><h1 className="text-3xl font-bold">Admin panel</h1>{loading ? <div className="h-72 animate-pulse rounded-xl bg-slate-200" /> : <><section className="rounded-xl bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Pending profiles</h2>{profiles.length ? profiles.map((profile) => <div key={profile.id} className="flex justify-between border-b py-3"><span>{profile.firstName} {profile.lastName}</span><button onClick={() => run(() => verifyProfile(profile.id), "Profile verified")} className="rounded-lg bg-green-600 px-3 py-2 text-sm text-white">Verify</button></div>) : <p className="py-4 text-slate-500">No pending profiles.</p>}</section><section className="rounded-xl bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Reports</h2>{reports.length ? reports.map((report) => <div key={report.id} className="flex justify-between border-b py-3"><span>{report.reason}: {report.reported?.profile?.firstName || report.reported?.email}</span><button onClick={() => run(() => resolveReport(report.id), "Report resolved")} className="rounded-lg border px-3 py-2 text-sm">Resolve</button></div>) : <p className="py-4 text-slate-500">No open reports.</p>}</section><section className="rounded-xl bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Users</h2>{users.map((user) => <div key={user.id} className="flex justify-between border-b py-3"><span>{user.email}</span><button onClick={() => run(() => deleteUser(user.id), "User deleted")} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600">Delete</button></div>)}</section></>}</div></DashboardLayout>;
+}
+export default Admin;

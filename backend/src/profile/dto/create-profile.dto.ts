@@ -43,6 +43,7 @@ export class CreateProfileDto {
     example: 178,
     description: 'Height in centimeters',
   })
+  @Type(() => Number)
   @IsNumber()
   height: number;
 
@@ -85,6 +86,7 @@ export class CreateProfileDto {
     example: 1200000,
     description: 'Annual income in INR',
   })
+  @Type(() => Number)
   @IsNumber()
   annualIncome: number;
 
