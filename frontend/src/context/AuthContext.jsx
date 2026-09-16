@@ -1,10 +1,8 @@
-import { createContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getMe, logoutSession } from "../services/auth.service";
 import { getProfile } from "../services/profile.service";
 import { getToken, removeToken, setToken } from "../utils/token";
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const AuthContext = createContext();
+import { AuthContext } from "./AuthContext.context";
 
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -42,9 +40,7 @@ function AuthProvider({ children }) {
     }
   };
 
-  // Check authentication when app starts
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkAuth();
   }, []);
 
