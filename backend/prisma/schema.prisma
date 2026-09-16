@@ -17,51 +17,178 @@ enum Gender {
   FEMALE
 }
 
+enum InterestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum NotificationType {
+  NEW_INTEREST
+  INTEREST_ACCEPTED
+  NEW_MESSAGE
+  PROFILE_VIEW
+  NEW_MATCH
+  PROFILE_VERIFIED
+  SYSTEM
+}
+
+enum ReportReason {
+  FAKE_PROFILE
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  SPAM
+  OTHER
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  password     String
-  role         Role     @default(USER)
-
-  refreshToken String?
-
-  createdAt    DateTime @default(now())
-
-  profile      Profile?
+  id                    String              @id @default(cuid())
+  email                 String              @unique
+  password              String
+  role                  Role                @default(USER)
+  refreshToken          String?
+  createdAt             DateTime            @default(now())
+  profile               Profile?
+  preference            PartnerPreference?
+  sentInterests         Interest[]          @relation("sentInterests")
+  receivedInterests     Interest[]          @relation("receivedInterests")
+  conversationsAsFirst  Conversation[]     @relation("conversationFirstUser")
+  conversationsAsSecond Conversation[]     @relation("conversationSecondUser")
+  sentMessages          Message[]           @relation("messageSender")
+  notifications         Notification[]
+  blocksInitiated       UserBlock[]         @relation("blocker")
+  blocksReceived        UserBlock[]         @relation("blocked")
+  reportsSubmitted      Report[]            @relation("reporter")
+  reportsReceived       Report[]            @relation("reported")
 }
 
 model Profile {
-  id                  String   @id @default(cuid())
+  id                String   @id @default(cuid())
+  firstName         String
+  lastName          String
+  gender            Gender
+  dateOfBirth       DateTime
+  height            Int
+  religion          String?
+  caste             String?
+  motherTongue      String?
+  education         String?
+  occupation        String?
+  annualIncome      Int?
+  city              String?
+  state             String?
+  country           String?
+  aboutMe           String?
+  profilePicture    String?
+  isProfileComplete Boolean  @default(false)
+  isVerified        Boolean  @default(false)
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
 
-  firstName           String
-  lastName            String
+model PartnerPreference {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  minAge       Int?
+  maxAge       Int?
+  minHeight    Int?
+  maxHeight    Int?
+  religion     String?
+  caste        String?
+  motherTongue String?
+  education    String?
+  occupation   String?
+  minIncome    Int?
+  maxIncome    Int?
+  country      String?
+  state        String?
+  city         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  gender              Gender
+  @@index([country, state, city])
+}
 
-  dateOfBirth         DateTime
+model Interest {
+  id         String         @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     InterestStatus @default(PENDING)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  sender     User           @relation("sentInterests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User           @relation("receivedInterests", fields: [receiverId], references: [id], onDelete: Cascade)
 
-  height              Int
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+  @@index([senderId, status])
+}
 
-  religion            String?
-  caste               String?
-  motherTongue        String?
-  education           String?
-  occupation          String?
-  annualIncome        Int?
+model Conversation {
+  id           String    @id @default(cuid())
+  firstUserId  String
+  secondUserId String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  firstUser    User      @relation("conversationFirstUser", fields: [firstUserId], references: [id], onDelete: Cascade)
+  secondUser   User      @relation("conversationSecondUser", fields: [secondUserId], references: [id], onDelete: Cascade)
+  messages     Message[]
 
-  city                String?
-  state               String?
-  country             String?
+  @@unique([firstUserId, secondUserId])
+  @@index([secondUserId])
+}
 
-  aboutMe             String?
-  profilePicture      String?
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("messageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
-  isProfileComplete   Boolean @default(false)
-  isVerified          Boolean @default(false)
+  @@index([conversationId, createdAt])
+}
 
-  userId              String   @unique
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  message   String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  @@index([userId, readAt, createdAt])
+}
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reportedId String
+  reason     ReportReason
+  details    String?
+  resolvedAt DateTime?
+  createdAt  DateTime     @default(now())
+  reporter   User         @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported   User         @relation("reported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([reportedId, resolvedAt])
 }

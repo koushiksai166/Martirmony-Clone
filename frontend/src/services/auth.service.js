@@ -11,3 +11,8 @@ export const getMe = () =>
 
 export const changePassword = (data) =>
   api.patch("/auth/change-password", data);
+
+export const refreshSession = (refreshToken) =>
+  api.post("/auth/refresh", { refreshToken });
+
+export const logoutSession = () => api.post("/auth/logout");

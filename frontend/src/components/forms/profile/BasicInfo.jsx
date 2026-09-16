@@ -109,6 +109,7 @@ function BasicInfo({ methods, nextStep }) {
             type="number"
             {...register("height", {
               required: "Height is required",
+              valueAsNumber: true,
             })}
             className="w-full border rounded-lg p-3"
           />

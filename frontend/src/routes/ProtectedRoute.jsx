@@ -1,8 +1,9 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, profile } = useAuth();
+  const location = useLocation();
 
   // Wait until authentication check is complete
   if (loading) {
@@ -16,6 +17,19 @@ function ProtectedRoute({ children }) {
   // User is not logged in
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  const isProfileSetupRoute = [
+    "/profile/create",
+    "/profile/edit",
+  ].includes(location.pathname);
+
+  if (!profile && !isProfileSetupRoute) {
+    return <Navigate to="/profile/create" replace />;
+  }
+
+  if (profile?.isProfileComplete && location.pathname === "/profile/create") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   // User is authenticated
