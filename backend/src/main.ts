@@ -31,7 +31,7 @@ async function bootstrap() {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Matrimony API')
+    .setTitle('Saanjh API')
     .setDescription('API Documentation')
     .setVersion('1.0')
     .addBearerAuth()

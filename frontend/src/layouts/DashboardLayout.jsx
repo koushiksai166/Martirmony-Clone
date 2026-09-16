@@ -17,7 +17,7 @@ function DashboardLayout({ children }) {
   return (
     <div className="app-page flex min-h-screen flex-col lg:flex-row">
       <aside className="hidden w-72 shrink-0 border-r border-[var(--line)] bg-[var(--surface)] px-5 py-6 lg:flex lg:flex-col">
-        <div className="flex items-center gap-3 px-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--rose)] text-lg font-bold text-white">M</div><div><p className="display-font text-xl font-bold">Matrimony</p><p className="text-xs text-[var(--muted)]">Meaningful beginnings</p></div></div>
+        <div className="flex items-center gap-3 px-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--rose)] text-lg font-bold text-white">M</div><div><p className="display-font text-xl font-bold">Saanjh</p><p className="text-xs text-[var(--muted)]">Meaningful beginnings</p></div></div>
         <nav aria-label="Main navigation" className="mt-10 space-y-1">
           {links.map(([to, label, Icon]) => <NavLink key={to} to={to} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? "bg-[var(--rose-soft)] text-[var(--rose)]" : "text-[var(--ink-soft)] hover:bg-[var(--surface-warm)] hover:text-[var(--ink)]"}`}><Icon size={18} strokeWidth={1.8} />{label}</NavLink>)}
           {user?.role === "ADMIN" && <NavLink to="/admin" className={({ isActive }) => `mt-5 flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${isActive ? "bg-[var(--rose-soft)] text-[var(--rose)]" : "text-[var(--ink-soft)] hover:bg-[var(--surface-warm)]"}`}><ShieldCheck size={18} />Admin</NavLink>}
