@@ -15,6 +15,7 @@ import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
 import { SafetyModule } from './safety/safety.module';
 import { AdminModule } from './admin/admin.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AdminModule } from './admin/admin.module';
     NotificationModule,
     SafetyModule,
     AdminModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

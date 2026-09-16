@@ -42,6 +42,25 @@ enum ReportReason {
   OTHER
 }
 
+enum MembershipPlan {
+  FREE
+  PREMIUM
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
 model User {
   id                    String              @id @default(cuid())
   email                 String              @unique
@@ -61,6 +80,8 @@ model User {
   blocksReceived        UserBlock[]         @relation("blocked")
   reportsSubmitted      Report[]            @relation("reporter")
   reportsReceived       Report[]            @relation("reported")
+  membership            Membership?
+  payments              Payment[]
 }
 
 model Profile {
@@ -191,4 +212,55 @@ model Report {
   reported   User         @relation("reported", fields: [reportedId], references: [id], onDelete: Cascade)
 
   @@index([reportedId, resolvedAt])
+}
+
+model Membership {
+  id                 String           @id @default(cuid())
+  userId             String           @unique
+  plan               MembershipPlan   @default(FREE)
+  status             MembershipStatus @default(ACTIVE)
+  startedAt          DateTime         @default(now())
+  expiresAt          DateTime?
+  razorpaySubscriptionId String?
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments           Payment[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([plan, status])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  membershipId      String?
+  provider           String        @default("razorpay")
+  providerOrderId   String        @unique
+  providerPaymentId String?       @unique
+  amount            Int
+  currency          String        @default("INR")
+  status            PaymentStatus @default(CREATED)
+  failureReason     String?
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership        Membership?   @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  events            PaymentEvent[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  provider        String   @default("razorpay")
+  providerEventId String   @unique
+  eventType       String
+  payload         Json
+  processedAt     DateTime @default(now())
+  paymentId       String?
+  payment         Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, processedAt])
 }
