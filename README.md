@@ -28,3 +28,22 @@ Create a Blueprint from this repository and select `render.yaml`. Render will cr
 Create a Vercel project with `frontend` as the Root Directory. The included `frontend/vercel.json` configures the Vite build and React Router fallback. Set `VITE_API_URL` to the public Render API URL, for example `https://matrimony-api.onrender.com`.
 
 Do not commit provider credentials or `.env` files. Configure Cloudinary, email, payment, and any future third-party secrets directly in the provider dashboards.
+
+### Razorpay payments
+
+The payment flow is server-verified. Configure these values in `backend/.env` locally or in Render:
+
+```env
+RAZORPAY_KEY_ID=your_key_id
+RAZORPAY_KEY_SECRET=your_key_secret
+PREMIUM_PLAN_AMOUNT=49900
+PAYMENT_CURRENCY=INR
+```
+
+Configure the Razorpay webhook endpoint as:
+
+```text
+https://your-render-api.onrender.com/payments/webhook
+```
+
+Subscribe to `payment.captured` and `payment.failed`. Add the webhook secret later in the backend deployment environment before enabling webhook processing. Never expose `RAZORPAY_KEY_SECRET` or the webhook secret to the frontend.

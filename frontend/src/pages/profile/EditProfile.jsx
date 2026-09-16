@@ -24,7 +24,31 @@ function EditProfile() {
   const onSubmit = async (values) => {
     setSaving(true);
     try {
-      await updateProfile(values);
+      const editableFields = [
+        "firstName",
+        "lastName",
+        "gender",
+        "dateOfBirth",
+        "height",
+        "religion",
+        "caste",
+        "motherTongue",
+        "education",
+        "occupation",
+        "annualIncome",
+        "city",
+        "state",
+        "country",
+        "aboutMe",
+        "profilePicture",
+      ];
+      const payload = Object.fromEntries(
+        editableFields
+          .map((field) => [field, values[field]])
+          .filter(([, value]) => value !== undefined && value !== null && value !== "" && !Number.isNaN(value)),
+      );
+
+      await updateProfile(payload);
       await refreshProfile();
       toast.success("Profile updated successfully");
       navigate("/profile");

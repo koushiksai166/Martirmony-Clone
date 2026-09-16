@@ -16,6 +16,7 @@ import Interests from "../pages/interests/Interests";
 import Messages from "../pages/messages/Messages";
 import Notifications from "../pages/notifications/Notifications";
 import Admin from "../pages/admin/Admin";
+import Membership from "../pages/membership/Membership";
 
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        <Route path="/membership" element={<ProtectedRoute><Membership /></ProtectedRoute>} />
         <Route path="/profile/:id" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
 
         <Route path="*" element={<NotFound />} />

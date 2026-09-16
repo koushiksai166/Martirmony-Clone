@@ -1,4 +1,4 @@
-import { Bell, Compass, Heart, Home, LogOut, MessageCircle, Search, Settings, ShieldCheck, UserRound } from "lucide-react";
+import { Bell, Compass, Crown, Heart, Home, LogOut, MessageCircle, Search, Settings, ShieldCheck, UserRound } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Avatar from "../components/ui/Avatar";
@@ -8,6 +8,7 @@ const links = [
   ["/matches", "Matches", Compass], ["/interests", "Interests", Heart],
   ["/messages", "Messages", MessageCircle], ["/notifications", "Alerts", Bell],
   ["/profile", "My profile", UserRound], ["/preferences", "Preferences", Settings],
+  ["/membership", "Premium", Crown],
 ];
 
 function DashboardLayout({ children }) {
