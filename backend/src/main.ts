@@ -9,7 +9,7 @@ import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   // Serve uploaded files — local disk only (development).
   // Replace with Cloudinary/S3/R2 before deploying to Render.

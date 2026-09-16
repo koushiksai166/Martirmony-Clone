@@ -82,8 +82,8 @@ function EditProfile() {
           <ProfileImageUpload
             currentUrl={profile?.profilePicture}
             name={profile ? `${profile.firstName} ${profile.lastName}` : "Member"}
-            onUploaded={refreshProfile}
-            onDeleted={refreshProfile}
+            onUploaded={async () => { await refreshProfile(); }}
+            onDeleted={async () => { await refreshProfile(); }}
           />
         </section>
         <section className="grid gap-5 rounded-xl bg-white p-6 shadow-sm sm:grid-cols-2">

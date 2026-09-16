@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { Camera, Trash2 } from "lucide-react";
 import Avatar from "../ui/Avatar";
@@ -11,6 +11,11 @@ function ProfileImageUpload({ currentUrl, name = "Member", onUploaded, onDeleted
   const inputRef = useRef(null);
   const [preview, setPreview] = useState(currentUrl ?? null);
   const [uploading, setUploading] = useState(false);
+
+  // Sync preview when parent passes a new currentUrl (e.g. after refreshProfile)
+  useEffect(() => {
+    setPreview(currentUrl ?? null);
+  }, [currentUrl]);
 
   const handleFile = async (file) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
