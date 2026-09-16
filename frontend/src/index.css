@@ -59,6 +59,17 @@ a { color: inherit; text-decoration: none; }
 .btn-quiet { display: inline-flex; align-items: center; gap: .45rem; border: 0; background: transparent; color: var(--ink-soft); font-weight: 600; padding: .55rem .7rem; }
 .btn-quiet:hover { color: var(--rose); background: var(--rose-soft); }
 
+/* Keep older feature screens on the same brand system while they are incrementally refactored. */
+.bg-pink-600 { background-color: var(--rose) !important; }
+.hover\:bg-pink-700:hover { background-color: var(--rose-dark) !important; }
+.text-pink-600, .text-blue-600 { color: var(--rose) !important; }
+.border-blue-600 { border-color: var(--rose) !important; }
+.bg-blue-600 { background-color: var(--rose) !important; }
+.bg-slate-100 { background-color: var(--paper) !important; }
+.bg-gray-50 { background-color: var(--surface-warm) !important; }
+.rounded-xl { border-radius: 18px; }
+.shadow-sm, .shadow-lg { box-shadow: var(--shadow); }
+
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
