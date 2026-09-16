@@ -36,7 +36,6 @@ The payment flow is server-verified. Configure these values in `backend/.env` lo
 ```env
 RAZORPAY_KEY_ID=your_key_id
 RAZORPAY_KEY_SECRET=your_key_secret
-RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
 PREMIUM_PLAN_AMOUNT=49900
 PAYMENT_CURRENCY=INR
 ```
@@ -47,4 +46,4 @@ Configure the Razorpay webhook endpoint as:
 https://your-render-api.onrender.com/payments/webhook
 ```
 
-Subscribe to `payment.captured` and `payment.failed`. Never expose `RAZORPAY_KEY_SECRET` or `RAZORPAY_WEBHOOK_SECRET` to the frontend.
+Subscribe to `payment.captured` and `payment.failed`. Add the webhook secret later in the backend deployment environment before enabling webhook processing. Never expose `RAZORPAY_KEY_SECRET` or the webhook secret to the frontend.

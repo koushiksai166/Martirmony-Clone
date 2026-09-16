@@ -29,8 +29,6 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-      - key: RAZORPAY_WEBHOOK_SECRET
-        sync: false
       - key: PREMIUM_PLAN_AMOUNT
         value: 49900
       - key: PAYMENT_CURRENCY

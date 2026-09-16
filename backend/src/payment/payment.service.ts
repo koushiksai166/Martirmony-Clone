@@ -35,6 +35,7 @@ export class PaymentService {
   }
 
   async webhook(signature: string, rawBody: Buffer) {
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) throw new BadRequestException('Webhook secret is not configured');
     const expected = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET || '').update(rawBody).digest('hex');
     if (!this.signaturesMatch(expected, signature)) throw new UnauthorizedException('Invalid webhook signature');
     const payload = JSON.parse(rawBody.toString('utf8'));
