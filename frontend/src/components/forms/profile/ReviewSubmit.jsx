@@ -37,6 +37,8 @@ function ReviewSubmit({ methods, previousStep }) {
       }
 
       await refreshProfile();
+      localStorage.removeItem("reg_firstName");
+      localStorage.removeItem("reg_lastName");
       toast.success("Profile created successfully!");
       navigate("/dashboard", { replace: true });
     } catch (error) {

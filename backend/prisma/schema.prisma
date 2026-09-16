@@ -91,6 +91,7 @@ model Profile {
   gender            Gender
   dateOfBirth       DateTime
   height            Int
+  weight            Int
   religion          String?
   caste             String?
   motherTongue      String?

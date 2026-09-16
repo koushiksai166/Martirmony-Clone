@@ -32,7 +32,7 @@ function BasicInfo({ methods, nextStep }) {
   };
 
   const handleNext = async () => {
-    const valid = await trigger(["firstName", "lastName", "gender", "dateOfBirth", "height"]);
+    const valid = await trigger(["firstName", "lastName", "gender", "dateOfBirth", "height", "weight"]);
     if (valid) nextStep();
   };
 
@@ -69,9 +69,9 @@ function BasicInfo({ methods, nextStep }) {
           <label className="block mb-2">First Name</label>
           <input
             {...register("firstName", { required: "First name is required" })}
-            className="w-full border rounded-lg p-3"
+            className="w-full border rounded-lg p-3 bg-slate-50 text-slate-500 cursor-not-allowed"
+            readOnly
           />
-          <p className="text-red-500 text-sm mt-1">{errors.firstName?.message}</p>
         </div>
 
         {/* Last Name */}
@@ -79,9 +79,9 @@ function BasicInfo({ methods, nextStep }) {
           <label className="block mb-2">Last Name</label>
           <input
             {...register("lastName", { required: "Last name is required" })}
-            className="w-full border rounded-lg p-3"
+            className="w-full border rounded-lg p-3 bg-slate-50 text-slate-500 cursor-not-allowed"
+            readOnly
           />
-          <p className="text-red-500 text-sm mt-1">{errors.lastName?.message}</p>
         </div>
 
         {/* Gender */}
@@ -103,7 +103,20 @@ function BasicInfo({ methods, nextStep }) {
           <label className="block mb-2">Date of Birth</label>
           <input
             type="date"
-            {...register("dateOfBirth", { required: "Date of birth is required" })}
+            {...register("dateOfBirth", { 
+              required: "Date of birth is required",
+              validate: (value) => {
+                const today = new Date();
+                const birthDate = new Date(value);
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                  age--;
+                }
+                return age >= 18 || "You must be at least 18 years old to register";
+              }
+            })}
+            max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
             className="w-full border rounded-lg p-3"
           />
           <p className="text-red-500 text-sm mt-1">{errors.dateOfBirth?.message}</p>
@@ -112,12 +125,35 @@ function BasicInfo({ methods, nextStep }) {
         {/* Height */}
         <div>
           <label className="block mb-2">Height (cm)</label>
-          <input
-            type="number"
-            {...register("height", { required: "Height is required", valueAsNumber: true })}
+          <select
+            {...register("height", { required: "Height is required" })}
             className="w-full border rounded-lg p-3"
-          />
+          >
+            <option value="">Select Height</option>
+            {Array.from({ length: 101 }, (_, i) => 140 + i).map((cm) => {
+              const feet = Math.floor(cm / 30.48);
+              const inches = Math.round((cm % 30.48) / 2.54);
+              return (
+                <option key={cm} value={cm}>{cm} cm ({feet}'{inches}")</option>
+              );
+            })}
+          </select>
           <p className="text-red-500 text-sm mt-1">{errors.height?.message}</p>
+        </div>
+
+        {/* Weight */}
+        <div>
+          <label className="block mb-2">Weight (kg)</label>
+          <select
+            {...register("weight", { required: "Weight is required" })}
+            className="w-full border rounded-lg p-3"
+          >
+            <option value="">Select Weight</option>
+            {Array.from({ length: 151 }, (_, i) => 40 + i).map((kg) => (
+              <option key={kg} value={kg}>{kg} kg</option>
+            ))}
+          </select>
+          <p className="text-red-500 text-sm mt-1">{errors.weight?.message}</p>
         </div>
 
       </div>

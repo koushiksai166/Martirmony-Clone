@@ -21,6 +21,7 @@ export class ProfileService {
     gender: string;
     dateOfBirth: Date;
     height: number;
+    weight: number;
     religion: string | null;
     caste: string | null;
     motherTongue: string | null;
@@ -38,6 +39,7 @@ export class ProfileService {
       profile.gender,
       profile.dateOfBirth,
       profile.height,
+      profile.weight,
       profile.religion,
       profile.caste,
       profile.motherTongue,
@@ -295,4 +297,3 @@ async remove(userId: string) {
 
 
 }
-

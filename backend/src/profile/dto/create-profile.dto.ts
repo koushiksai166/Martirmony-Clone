@@ -47,6 +47,14 @@ export class CreateProfileDto {
   @IsNumber()
   height: number;
 
+  @ApiProperty({
+    example: 75,
+    description: 'Weight in kilograms',
+  })
+  @Type(() => Number)
+  @IsNumber()
+  weight: number;
+
   @ApiPropertyOptional({
     example: 'Hindu',
   })

@@ -16,8 +16,8 @@ function CreateProfile() {
 
   const methods = useForm({
     defaultValues: {
-      firstName: "",
-      lastName: "",
+      firstName: localStorage.getItem("reg_firstName") ?? "",
+      lastName: localStorage.getItem("reg_lastName") ?? "",
       gender: "",
       dateOfBirth: "",
       height: "",
