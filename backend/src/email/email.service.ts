@@ -7,14 +7,29 @@ export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
 
   constructor() {
-    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+    const {
+      // Generic SMTP
+      SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
+      // Gmail shorthand (existing .env keys)
+      EMAIL_USER, EMAIL_PASS,
+    } = process.env;
+
     if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+      // Explicit SMTP config
       this.transporter = nodemailer.createTransport({
         host: SMTP_HOST,
         port: Number(SMTP_PORT ?? 587),
         secure: Number(SMTP_PORT) === 465,
         auth: { user: SMTP_USER, pass: SMTP_PASS },
       });
+      this.logger.log(`Email configured via SMTP (${SMTP_HOST})`);
+    } else if (EMAIL_USER && EMAIL_PASS) {
+      // Gmail app-password shorthand
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+      });
+      this.logger.log(`Email configured via Gmail (${EMAIL_USER})`);
     } else {
       this.logger.warn('SMTP not configured — emails are disabled');
     }
@@ -22,13 +37,15 @@ export class EmailService {
 
   async sendWelcome(to: string, firstName: string): Promise<void> {
     if (!this.transporter) return;
+    const from = process.env.SMTP_FROM ?? process.env.EMAIL_USER ?? process.env.SMTP_USER;
     try {
       await this.transporter.sendMail({
-        from: `"Saanjh" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+        from: `"Saanjh" <${from}>`,
         to,
         subject: 'Welcome to Saanjh 🌸',
         html: welcomeTemplate(firstName),
       });
+      this.logger.log(`Welcome email sent to ${to}`);
     } catch (err) {
       this.logger.error(`Welcome email failed for ${to}: ${(err as Error).message}`);
     }
