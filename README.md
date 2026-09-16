@@ -17,6 +17,28 @@ Compose waits for Postgres readiness and runs `prisma migrate deploy` before sta
 
 Install dependencies in both `backend` and `frontend`, configure `backend/.env`, then run `npm run start:dev` and `npm run dev` from their respective directories.
 
+## Feature URLs
+
+When running the frontend with Vite, use `http://localhost:5173`. With Docker, use `http://localhost:8080`.
+
+| Feature | URL |
+| --- | --- |
+| Landing page | `/` |
+| Register | `/register` |
+| Login | `/login` |
+| Dashboard | `/dashboard` |
+| Search | `/search` |
+| Matches | `/matches` |
+| Interests | `/interests` |
+| Messages | `/messages` |
+| Notifications | `/notifications` |
+| My profile | `/profile` |
+| Partner preferences | `/preferences` |
+| Premium membership | `/membership` |
+| Admin panel | `/admin` |
+
+There are no committed demo logins or default passwords. Register a user at `/register`; promote a trusted local account to `ADMIN` directly in the database before testing `/admin`. Never add real credentials to the repository.
+
 ## Deployment
 
 ### Render
