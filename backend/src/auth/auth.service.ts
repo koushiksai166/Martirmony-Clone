@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
 import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
 
 import { StringValue } from 'ms';
 
@@ -21,6 +22,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) { }
 
   // ===========================
@@ -79,6 +81,9 @@ export class AuthService {
       email,
       hashedPassword,
     );
+
+    // Fire-and-forget — email failure must not break registration
+    void this.emailService.sendWelcome(user.email, user.email.split('@')[0]);
 
     return {
       message: 'User registered successfully',
