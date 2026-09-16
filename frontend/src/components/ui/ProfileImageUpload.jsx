@@ -6,15 +6,22 @@ import { uploadProfilePicture, deleteProfilePicture } from "../../services/profi
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 5 * 1024 * 1024;
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5001";
+
+function resolveUrl(src) {
+  if (!src) return null;
+  if (src.startsWith("/uploads/")) return `${API_URL}${src}`;
+  return src;
+}
 
 function ProfileImageUpload({ currentUrl, name = "Member", onUploaded, onDeleted }) {
   const inputRef = useRef(null);
-  const [preview, setPreview] = useState(currentUrl ?? null);
+  const [preview, setPreview] = useState(resolveUrl(currentUrl) ?? null);
   const [uploading, setUploading] = useState(false);
 
   // Sync preview when parent passes a new currentUrl (e.g. after refreshProfile)
   useEffect(() => {
-    setPreview(currentUrl ?? null);
+    setPreview(resolveUrl(currentUrl) ?? null);
   }, [currentUrl]);
 
   const handleFile = async (file) => {
@@ -36,7 +43,7 @@ function ProfileImageUpload({ currentUrl, name = "Member", onUploaded, onDeleted
       toast.success("Profile picture updated");
       onUploaded?.(data.profilePicture);
     } catch (err) {
-      setPreview(currentUrl ?? null);
+      setPreview(resolveUrl(currentUrl) ?? null);
       toast.error(err.response?.data?.message ?? "Upload failed");
     } finally {
       setUploading(false);
