@@ -16,3 +16,15 @@ Compose waits for Postgres readiness and runs `prisma migrate deploy` before sta
 ## Manual development
 
 Install dependencies in both `backend` and `frontend`, configure `backend/.env`, then run `npm run start:dev` and `npm run dev` from their respective directories.
+
+## Deployment
+
+### Render
+
+Create a Blueprint from this repository and select `render.yaml`. Render will create the backend service and PostgreSQL database, run Prisma migrations during deploy, and use `/health` for health checks. Set `FRONTEND_URL` in the Render service to the deployed Vercel URL.
+
+### Vercel
+
+Create a Vercel project with `frontend` as the Root Directory. The included `frontend/vercel.json` configures the Vite build and React Router fallback. Set `VITE_API_URL` to the public Render API URL, for example `https://matrimony-api.onrender.com`.
+
+Do not commit provider credentials or `.env` files. Configure Cloudinary, email, payment, and any future third-party secrets directly in the provider dashboards.
