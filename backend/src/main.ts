@@ -3,10 +3,19 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   app.use(helmet());
+
+  // Serve uploaded files — local disk only (development).
+  // Replace with Cloudinary/S3/R2 before deploying to Render.
+  const uploadsDir = join(process.cwd(), 'uploads');
+  if (!existsSync(uploadsDir)) mkdirSync(uploadsDir);
+  app.use('/uploads', express.static(uploadsDir));
 
   app.enableCors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",

@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { useAuth } from "../../hooks/useAuth";
 import { updateProfile } from "../../services/profile.service";
+import ProfileImageUpload from "../../components/ui/ProfileImageUpload";
 
 function EditProfile() {
   const navigate = useNavigate();
@@ -40,7 +41,6 @@ function EditProfile() {
         "state",
         "country",
         "aboutMe",
-        "profilePicture",
       ];
       const payload = Object.fromEntries(
         editableFields
@@ -78,6 +78,14 @@ function EditProfile() {
           <h1 className="text-3xl font-bold text-slate-900">Edit profile</h1>
           <p className="mt-2 text-slate-600">Keep your details current so your profile represents you well.</p>
         </div>
+        <section className="flex justify-center rounded-xl bg-white p-6 shadow-sm">
+          <ProfileImageUpload
+            currentUrl={profile?.profilePicture}
+            name={profile ? `${profile.firstName} ${profile.lastName}` : "Member"}
+            onUploaded={refreshProfile}
+            onDeleted={refreshProfile}
+          />
+        </section>
         <section className="grid gap-5 rounded-xl bg-white p-6 shadow-sm sm:grid-cols-2">
           {input("firstName", "First name", { required: "First name is required" })}
           {input("lastName", "Last name", { required: "Last name is required" })}
