@@ -18,7 +18,7 @@ async function bootstrap() {
   app.use('/uploads', express.static(uploadsDir));
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173,https://martirmony-frontend.vercel.app",
     credentials: true,
   });
 
