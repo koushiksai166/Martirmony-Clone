@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 
-@WebSocketGateway({ namespace: '/chat', cors: { origin: process.env.FRONTEND_URL || 'http://localhost:5173', credentials: true } })
+@WebSocketGateway({ namespace: '/chat', cors: { origin: process.env.FRONTEND_URL || 'http://localhost:5173,https://martirmony-frontend.vercel.app/', credentials: true } })
 export class ChatGateway {
   @WebSocketServer() server: Server;
   constructor(private readonly jwt: JwtService, private readonly chat: ChatService) {}
