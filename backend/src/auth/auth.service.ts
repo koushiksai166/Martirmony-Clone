@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
 import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
 
 import { StringValue } from 'ms';
 
@@ -21,6 +22,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) { }
 
   // ===========================
@@ -79,6 +81,9 @@ export class AuthService {
       email,
       hashedPassword,
     );
+
+    // Fire-and-forget — email failure must not break registration
+    void this.emailService.sendWelcome(user.email, user.email.split('@')[0]);
 
     return {
       message: 'User registered successfully',
@@ -168,6 +173,29 @@ export class AuthService {
         createdAt: user.createdAt,
       },
     };
+  }
+
+  async refresh(refreshToken: string) {
+    if (!refreshToken) throw new UnauthorizedException('Refresh token is required');
+    let payload: any;
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, { secret: process.env.JWT_REFRESH_SECRET });
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    const user = await this.usersService.findById(payload.sub);
+    if (!user?.refreshToken || !(await bcrypt.compare(refreshToken, user.refreshToken))) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    const accessToken = await this.generateAccessToken(user);
+    const nextRefreshToken = await this.generateRefreshToken(user);
+    await this.usersService.updateRefreshToken(user.id, await bcrypt.hash(nextRefreshToken, 10));
+    return { access_token: accessToken, refresh_token: nextRefreshToken };
+  }
+
+  async logout(userId: string) {
+    await this.usersService.removeRefreshToken(userId);
+    return { message: 'Logged out successfully' };
   }
 
   // ===========================

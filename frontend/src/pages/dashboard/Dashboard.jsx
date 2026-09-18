@@ -1,13 +1,21 @@
+import { useEffect, useState } from "react";
+import { ArrowRight, Bell, CheckCircle2, Heart, MessageCircle, Search } from "lucide-react";
+import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 import DashboardLayout from "../../layouts/DashboardLayout";
+import Card from "../../components/common/Card";
+import Avatar from "../../components/ui/Avatar";
+import Badge from "../../components/ui/Badge";
+import { useAuth } from "../../hooks/useAuth";
+import { getMatches } from "../../services/match.service";
+import { getReceivedInterests } from "../../services/interest.service";
+import { getNotifications } from "../../services/notification.service";
 
 function Dashboard() {
-  return (
-    <DashboardLayout>
-      <h1 className="text-4xl font-bold">
-        Dashboard
-      </h1>
-    </DashboardLayout>
-  );
+  const { profile } = useAuth(); const [matches, setMatches] = useState([]); const [interests, setInterests] = useState([]); const [notifications, setNotifications] = useState([]); const [loading, setLoading] = useState(true);
+  useEffect(() => { Promise.all([getMatches(), getReceivedInterests(), getNotifications()]).then(([matchResponse, interestResponse, notificationResponse]) => { setMatches(matchResponse.data.matches || []); setInterests(interestResponse.data || []); setNotifications(notificationResponse.data || []); }).catch((error) => toast.error(error.response?.data?.message || "Unable to load your overview")).finally(() => setLoading(false)); }, []);
+  const completion = profile?.isProfileComplete ? 100 : 60;
+  return <DashboardLayout><div className="space-y-8"><section className="flex flex-wrap items-end justify-between gap-5"><div><p className="eyebrow">Your overview</p><h1 className="display-font mt-2 text-4xl sm:text-5xl">A beautiful day to begin, {profile?.firstName || "there"}.</h1><p className="mt-3 max-w-xl text-[var(--ink-soft)]">Keep your profile fresh, explore thoughtfully, and let the right conversations find you.</p></div><Link to="/search" className="btn-primary"><Search size={17} /> Discover profiles</Link></section><section className="grid gap-5 lg:grid-cols-[1.3fr_1fr]"> <Card className="overflow-hidden bg-[var(--ink)] p-6 text-white sm:p-8"><div className="flex items-start justify-between gap-5"><div><p className="text-sm font-semibold text-white/60">Profile presence</p><h2 className="display-font mt-2 text-3xl">{completion}% complete</h2><p className="mt-3 max-w-sm text-sm leading-6 text-white/65">A complete profile gives people a clearer sense of who you are.</p></div><CheckCircle2 className="text-[#d9ad71]" size={28} /></div><div className="mt-8 h-2 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#d9ad71]" style={{ width: `${completion}%` }} /></div><Link to={completion === 100 ? "/profile" : "/profile/edit"} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[#f0c98e]">{completion === 100 ? "Review your profile" : "Complete your profile"} <ArrowRight size={15} /></Link></Card><Card className="p-6"><p className="text-sm font-semibold text-[var(--ink-soft)]">Your activity</p><div className="mt-5 grid grid-cols-3 gap-3"><div><Heart size={18} className="text-[var(--rose)]" /><p className="mt-3 text-2xl font-bold">{loading ? "—" : interests.length}</p><p className="text-xs text-[var(--muted)]">Interests</p></div><div><Bell size={18} className="text-[var(--gold)]" /><p className="mt-3 text-2xl font-bold">{loading ? "—" : notifications.filter((item) => !item.readAt).length}</p><p className="text-xs text-[var(--muted)]">Unread</p></div><div><MessageCircle size={18} className="text-[var(--success)]" /><p className="mt-3 text-2xl font-bold">—</p><p className="text-xs text-[var(--muted)]">Messages</p></div></div></Card></section><section><div className="flex items-end justify-between"><div><p className="eyebrow">Curated for you</p><h2 className="display-font mt-2 text-3xl">Recommended matches</h2></div><Link to="/matches" className="btn-quiet">See all <ArrowRight size={16} /></Link></div>{loading ? <div className="mt-5 h-48 animate-pulse rounded-2xl bg-[var(--surface-warm)]" /> : matches.length ? <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{matches.slice(0, 3).map(({ profile: match, compatibility }) => <Card key={match.id} className="p-4"><div className="flex items-center gap-4"><Avatar src={match.profilePicture} name={`${match.firstName} ${match.lastName}`} size="lg" /><div><h3 className="font-bold">{match.firstName} {match.lastName}</h3><p className="mt-1 text-sm text-[var(--ink-soft)]">{match.city || "Location private"}</p><Badge tone="rose">{compatibility}% match</Badge></div></div><Link to={`/profile/${match.id}`} className="btn-secondary mt-5 w-full text-sm">View profile</Link></Card>)}</div> : <Card className="mt-5 p-8 text-center"><p className="font-bold">Your recommendations are waiting.</p><p className="mt-2 text-sm text-[var(--ink-soft)]">Set partner preferences to make them more personal.</p><Link to="/preferences" className="btn-primary mt-5">Set preferences</Link></Card>}</section></div></DashboardLayout>;
 }
 
 export default Dashboard;

@@ -1,176 +1,180 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { register } from "../../services/auth.service";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
-import {
-  Eye,
-  EyeOff,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import AuthLayout from "../../layouts/AuthLayout";
+import Button from "../../components/common/Button";
+import { register } from "../../services/auth.service";
 
 function Register() {
   const navigate = useNavigate();
-
   const [formData, setFormData] = useState({
-    profileFor: "",
-    fullName: "",
+    profileFor: "Myself",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
-
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+      toast.error("Complete the required fields");
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
-
     try {
       setLoading(true);
-
-      // Split fullName into firstName and lastName for backend compatibility if needed
-      const nameParts = formData.fullName.trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-      
-      await register({
-        ...formData,
-        firstName,
-        lastName
-      });
-
-      toast.success("Registration Successful");
-
+      await register({ email: formData.email, password: formData.password });
+      localStorage.setItem("reg_firstName", formData.firstName);
+      localStorage.setItem("reg_lastName", formData.lastName);
+      toast.success("Your account is ready");
       navigate("/login");
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Registration Failed"
-      );
+      toast.error(error.response?.data?.message || "Registration failed");
     } finally {
       setLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
-
-        <h1 className="text-3xl font-bold text-center mb-8">
-          Create a Matrimony Profile<br />
-          <span className="text-xl font-normal">Find your perfect match</span>
-        </h1>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-
+    <AuthLayout eyebrow="Begin with intention">
+      <div className="mb-9 lg:hidden">
+        <p className="display-font text-2xl font-bold">Saanjh</p>
+      </div>
+      <p className="eyebrow">Create your account</p>
+      <h2 className="display-font mt-3 text-4xl leading-tight">
+        A thoughtful first step.
+      </h2>
+      <p className="mt-3 text-[var(--ink-soft)]">
+        Tell us a little about who you are creating this profile for.
+      </p>
+      <form onSubmit={submit} className="mt-8 space-y-5">
+        <label className="block">
+          <span className="field-label">Profile created for</span>
           <select
-               name="profileFor"
-               value={formData.profileFor}
-               onChange={handleChange}
-               className="w-full border rounded-lg p-3 bg-white"
-             >
-              <option value="" disabled>Profile created for</option>
-              <option value="Myself">Myself</option>
-            <option value="Daughter">Daughter</option>
-            <option value="Son">Son</option>
-            <option value="Sister">Sister</option>
-            <option value="Brother">Brother</option>
-            <option value="Relative">Relative</option>
-            <option value="Friend">Friend</option>
+            className="field-input mt-2"
+            value={formData.profileFor}
+            onChange={(e) =>
+              setFormData({ ...formData, profileFor: e.target.value })
+            }
+          >
+            <option>Myself</option>
+            <option>Daughter</option>
+            <option>Son</option>
+            <option>Sibling</option>
+            <option>Relative</option>
           </select>
-
-          <input
-            type="text"
-            name="fullName"
-            placeholder={formData.profileFor === "" ? "Full Name" : formData.profileFor === "Myself" ? "Full Name" : `${formData.profileFor}'s Full Name`}
-            value={formData.fullName || ""}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-3"
-          />
-
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-3"
-          />
-
-          <div class="relative">
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block">
+            <span className="field-label">First name</span>
             <input
+              className="field-input mt-2"
+              value={formData.firstName}
+              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              placeholder="First name"
+            />
+          </label>
+          <label className="block">
+            <span className="field-label">Last name</span>
+            <input
+              className="field-input mt-2"
+              value={formData.lastName}
+              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              placeholder="Last name"
+            />
+          </label>
+        </div>
+        <label className="block">
+          <span className="field-label">Email address</span>
+          <input
+            className="field-input mt-2"
+            type="email"
+            autoComplete="email"
+            value={formData.email}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
+            placeholder="you@example.com"
+          />
+        </label>
+        <label className="block">
+          <span className="field-label">Password</span>
+          <span className="relative mt-2 block">
+            <input
+              className="field-input pr-12"
               type={showPassword ? "text" : "password"}
-              name="password"
-              placeholder="Password"
+              autoComplete="new-password"
               value={formData.password}
-              onChange={handleChange}
-              className="w-full border rounded-lg p-3"
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+              placeholder="At least 8 characters"
             />
             <button
               type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 px-3 flex items-center"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
             >
-              {showPassword ? <EyeOff /> : <Eye />}
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
-          </div>
-
-          <div class="relative">
+          </span>
+        </label>
+        <label className="block">
+          <span className="field-label">Confirm password</span>
+          <span className="relative mt-2 block">
             <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
+              className="field-input pr-12"
+              type={showConfirmPassword ? "text" : "password"}
+              autoComplete="new-password"
               value={formData.confirmPassword}
-              onChange={handleChange}
-              className="w-full border rounded-lg p-3"
+              onChange={(e) =>
+                setFormData({ ...formData, confirmPassword: e.target.value })
+              }
+              placeholder="Repeat your password"
             />
-            {formData.confirmPassword && (
-              <div className="absolute inset-y-0 right-0 px-3 flex items-center">
-                {formData.password === formData.confirmPassword ? (
-                  <CheckCircle className="text-green-500" />
-                ) : (
-                  <XCircle className="text-red-500" />
-                )}
-              </div>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-pink-600 text-white p-3 rounded-lg hover:bg-pink-700"
-          >
-            {loading ? "Creating..." : "Register Free"}
-          </button>
-          <p className="text-xs text-center text-gray-500 mt-4">
-            *By clicking register free, I agree to the T&C and Privacy Policy
-          </p>
-        </form>
-
-        <p className="text-center mt-6">
-          Already have an account?{" "}
-          <Link
-            className="text-pink-600 font-semibold"
-            to="/login"
-          >
-            Login
-          </Link>
+            <button
+              type="button"
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </span>
+          {formData.confirmPassword && (
+            <p className={`mt-2 text-sm ${formData.password === formData.confirmPassword ? "text-green-600" : "text-red-500"}`}>
+              {formData.password === formData.confirmPassword ? "Passwords match" : "Passwords do not match"}
+            </p>
+          )}
+        </label>
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? (
+            "Creating account..."
+          ) : (
+            <>
+              Create account <ArrowRight size={17} />
+            </>
+          )}
+        </Button>
+        <p className="text-xs leading-5 text-[var(--muted)]">
+          By continuing, you agree to our terms and privacy policy.
         </p>
-
-      </div>
-    </div>
+      </form>
+      <p className="mt-8 text-center text-sm text-[var(--ink-soft)]">
+        Already registered?{" "}
+        <Link className="font-bold text-[var(--rose)]" to="/login">
+          Sign in
+        </Link>
+      </p>
+    </AuthLayout>
   );
 }
 

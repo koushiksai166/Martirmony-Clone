@@ -70,7 +70,7 @@ function EducationCareer({
         {/* Annual Income */}
         <div>
           <label className="block mb-2">
-            Annual Income (LPA)
+            Annual Income (INR)
           </label>
 
           <input

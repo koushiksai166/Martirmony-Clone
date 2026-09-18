@@ -43,8 +43,17 @@ export class CreateProfileDto {
     example: 178,
     description: 'Height in centimeters',
   })
+  @Type(() => Number)
   @IsNumber()
   height: number;
+
+  @ApiProperty({
+    example: 75,
+    description: 'Weight in kilograms',
+  })
+  @Type(() => Number)
+  @IsNumber()
+  weight: number;
 
   @ApiPropertyOptional({
     example: 'Hindu',
@@ -85,6 +94,7 @@ export class CreateProfileDto {
     example: 1200000,
     description: 'Annual income in INR',
   })
+  @Type(() => Number)
   @IsNumber()
   annualIncome: number;
 
