@@ -6,8 +6,20 @@ import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/common/Button";
 import { register } from "../../services/auth.service";
 
+/**
+ * Register Page Component
+ *
+ * Registration screen for new members:
+ * - Collects "Profile created for" context (Myself, Daughter, Son, Sibling, Relative).
+ * - First Name and Last Name (cached in localStorage to prefill profile wizard).
+ * - Email address and password with match confirmation check.
+ * - Password visibility toggles for both password inputs.
+ * - Submits registration payload to `/auth/register` and redirects to login on success.
+ */
 function Register() {
   const navigate = useNavigate();
+
+  // Controlled form state
   const [formData, setFormData] = useState({
     profileFor: "Myself",
     firstName: "",
@@ -16,25 +28,47 @@ function Register() {
     password: "",
     confirmPassword: "",
   });
+
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  /**
+   * Validates form and submits new user registration
+   */
   const submit = async (event) => {
     event.preventDefault();
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+
+    // Required field validation
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.email ||
+      !formData.password
+    ) {
       toast.error("Complete the required fields");
       return;
     }
+
+    // Password confirmation match check
     if (formData.password !== formData.confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
+
     try {
       setLoading(true);
+
+      // 1. Post registration data to backend
       await register({ email: formData.email, password: formData.password });
+
+      // 2. Cache name in localStorage to pre-fill Step 1 of Profile Creation
       localStorage.setItem("reg_firstName", formData.firstName);
       localStorage.setItem("reg_lastName", formData.lastName);
+
       toast.success("Your account is ready");
+
+      // 3. Redirect to login page
       navigate("/login");
     } catch (error) {
       toast.error(error.response?.data?.message || "Registration failed");
@@ -42,11 +76,15 @@ function Register() {
       setLoading(false);
     }
   };
+
   return (
     <AuthLayout eyebrow="Begin with intention">
+      {/* Mobile brand header */}
       <div className="mb-9 lg:hidden">
         <p className="display-font text-2xl font-bold">Saanjh</p>
       </div>
+
+      {/* Page Title & Subtitle */}
       <p className="eyebrow">Create your account</p>
       <h2 className="display-font mt-3 text-4xl leading-tight">
         A thoughtful first step.
@@ -54,7 +92,10 @@ function Register() {
       <p className="mt-3 text-[var(--ink-soft)]">
         Tell us a little about who you are creating this profile for.
       </p>
+
+      {/* Registration Form */}
       <form onSubmit={submit} className="mt-8 space-y-5">
+        {/* Profile Created For Selector */}
         <label className="block">
           <span className="field-label">Profile created for</span>
           <select
@@ -71,13 +112,17 @@ function Register() {
             <option>Relative</option>
           </select>
         </label>
+
+        {/* First and Last Name Grid */}
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
             <span className="field-label">First name</span>
             <input
               className="field-input mt-2"
               value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, firstName: e.target.value })
+              }
               placeholder="First name"
             />
           </label>
@@ -86,11 +131,15 @@ function Register() {
             <input
               className="field-input mt-2"
               value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, lastName: e.target.value })
+              }
               placeholder="Last name"
             />
           </label>
         </div>
+
+        {/* Email Address */}
         <label className="block">
           <span className="field-label">Email address</span>
           <input
@@ -104,6 +153,8 @@ function Register() {
             placeholder="you@example.com"
           />
         </label>
+
+        {/* Password */}
         <label className="block">
           <span className="field-label">Password</span>
           <span className="relative mt-2 block">
@@ -127,6 +178,8 @@ function Register() {
             </button>
           </span>
         </label>
+
+        {/* Confirm Password */}
         <label className="block">
           <span className="field-label">Confirm password</span>
           <span className="relative mt-2 block">
@@ -142,19 +195,33 @@ function Register() {
             />
             <button
               type="button"
-              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              aria-label={
+                showConfirmPassword ? "Hide password" : "Show password"
+              }
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
             >
               {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </span>
+
+          {/* Real-time match visual validation */}
           {formData.confirmPassword && (
-            <p className={`mt-2 text-sm ${formData.password === formData.confirmPassword ? "text-green-600" : "text-red-500"}`}>
-              {formData.password === formData.confirmPassword ? "Passwords match" : "Passwords do not match"}
+            <p
+              className={`mt-2 text-sm ${
+                formData.password === formData.confirmPassword
+                  ? "text-green-600"
+                  : "text-red-500"
+              }`}
+            >
+              {formData.password === formData.confirmPassword
+                ? "Passwords match"
+                : "Passwords do not match"}
             </p>
           )}
         </label>
+
+        {/* Submit Action */}
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? (
             "Creating account..."
@@ -164,13 +231,17 @@ function Register() {
             </>
           )}
         </Button>
+
+        {/* Legal note */}
         <p className="text-xs leading-5 text-[var(--muted)]">
           By continuing, you agree to our terms and privacy policy.
         </p>
       </form>
+
+      {/* Login Navigation Link */}
       <p className="mt-8 text-center text-sm text-[var(--ink-soft)]">
         Already registered?{" "}
-        <Link className="font-bold text-[var(--rose)]" to="/login">
+        <Link className="font-bold text-[var(--rose)] hover:underline" to="/login">
           Sign in
         </Link>
       </p>
@@ -178,4 +249,4 @@ function Register() {
   );
 }
 
-export default Register;
+export default Register;

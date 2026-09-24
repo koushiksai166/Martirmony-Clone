@@ -1,5 +1,21 @@
+/**
+ * Stepper Component
+ *
+ * Horizontal step progress indicator for multi-step profile creation/editing workflows:
+ * - Highlights active, completed, and upcoming step indicators.
+ * - Displays step numbers for upcoming steps and checkmark icons for completed steps.
+ * - Animates progress bar fill between steps based on current step index.
+ *
+ * @param {object} props
+ * @param {number} props.currentStep - Current active step number (1-indexed)
+ * @param {string[]} props.steps - Array of step titles (e.g. ['Basic Info', 'Education & Career', ...])
+ */
 const Stepper = ({ currentStep, steps }) => {
   const totalSteps = steps.length;
+
+  // Calculate percentage width for the progress fill bar
+  const progressPercentage =
+    totalSteps > 1 ? ((currentStep - 1) / (totalSteps - 1)) * 100 : 0;
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-8 mb-8">
@@ -7,14 +23,22 @@ const Stepper = ({ currentStep, steps }) => {
         Complete Your Profile
       </h2>
       <div className="relative">
-        <div className="absolute left-0 top-1/2 w-full h-0.5 bg-gray-200" style={{ transform: 'translateY(-50%)' }}></div>
+        {/* Gray background track line */}
+        <div
+          className="absolute left-0 top-1/2 w-full h-0.5 bg-gray-200"
+          style={{ transform: "translateY(-50%)" }}
+        />
+
+        {/* Dynamic active progress fill line */}
         <div
           className="absolute left-0 top-1/2 h-0.5 bg-blue-600 transition-all duration-500"
           style={{
-            width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%`,
-            transform: 'translateY(-50%)'
+            width: `${progressPercentage}%`,
+            transform: "translateY(-50%)",
           }}
-        ></div>
+        />
+
+        {/* Step Nodes */}
         <div className="flex items-center justify-between relative">
           {steps.map((step, index) => {
             const stepNumber = index + 1;
@@ -23,21 +47,28 @@ const Stepper = ({ currentStep, steps }) => {
 
             return (
               <div key={step} className="flex flex-col items-center z-10">
+                {/* Circle badge showing checkmark, step number, or active border */}
                 <div
                   className={`
                     w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold
                     transition-all duration-500
-                    ${isCompleted ? 'bg-blue-600 text-white' : ''}
-                    ${isActive ? 'bg-white border-2 border-blue-600 text-blue-600 scale-110' : ''}
-                    ${!isCompleted && !isActive ? 'bg-gray-200 text-gray-500' : ''}
+                    ${isCompleted ? "bg-blue-600 text-white" : ""}
+                    ${
+                      isActive
+                        ? "bg-white border-2 border-blue-600 text-blue-600 scale-110"
+                        : ""
+                    }
+                    ${!isCompleted && !isActive ? "bg-gray-200 text-gray-500" : ""}
                   `}
                 >
-                  {isCompleted ? '✓' : stepNumber}
+                  {isCompleted ? "✓" : stepNumber}
                 </div>
+
+                {/* Step title label */}
                 <p
                   className={`
                     mt-2 text-sm text-center
-                    ${isActive ? 'font-bold text-blue-600' : 'text-gray-500'}
+                    ${isActive ? "font-bold text-blue-600" : "text-gray-500"}
                   `}
                 >
                   {step}
@@ -51,4 +82,4 @@ const Stepper = ({ currentStep, steps }) => {
   );
 };
 
-export default Stepper;
+export default Stepper;

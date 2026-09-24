@@ -1,3 +1,11 @@
+// ============================================================================
+// PRISMA SCHEMA DEFINITION
+// ============================================================================
+// This schema defines the database structure for the Saanjh Matrimony Platform.
+// It uses PostgreSQL as the database provider and Prisma as the Object-Relational
+// Mapper (ORM) to provide type-safe queries in the NestJS backend.
+// ============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,16 +15,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// ENUMS (System-wide Constrained Types)
+// ============================================================================
+
+/// User role for Access Control (RBAC):
+/// - USER: Regular registered candidate looking for a partner.
+/// - ADMIN: Platform moderator with permissions to verify profiles, manage users, and review reports.
 enum Role {
   USER
   ADMIN
 }
 
+/// Candidate biological gender used for matchmaking and partner filtering.
 enum Gender {
   MALE
   FEMALE
 }
 
+/// Lifecycle status for matchmaking interest requests between two candidates:
+/// - PENDING: Interest sent by one user, awaiting receiver's action.
+/// - ACCEPTED: Receiver accepted; mutual communication is now unlocked.
+/// - REJECTED: Receiver declined the interest.
+/// - WITHDRAWN: Sender cancelled their request before acceptance.
 enum InterestStatus {
   PENDING
   ACCEPTED
@@ -24,16 +45,18 @@ enum InterestStatus {
   WITHDRAWN
 }
 
+/// Notification categories triggering alerts in the user's dashboard bell icon.
 enum NotificationType {
-  NEW_INTEREST
-  INTEREST_ACCEPTED
-  NEW_MESSAGE
-  PROFILE_VIEW
-  NEW_MATCH
-  PROFILE_VERIFIED
-  SYSTEM
+  NEW_INTEREST       // Someone expressed interest in candidate's profile
+  INTEREST_ACCEPTED  // Sent interest was accepted by candidate
+  NEW_MESSAGE        // New chat message received
+  PROFILE_VIEW       // Someone viewed the candidate's profile
+  NEW_MATCH          // High compatibility match discovered
+  PROFILE_VERIFIED   // Admin approved government ID / profile
+  SYSTEM             // Announcements and system updates
 }
 
+/// Categorized reasons for reporting an abusive or fraudulent user.
 enum ReportReason {
   FAKE_PROFILE
   HARASSMENT
@@ -42,34 +65,50 @@ enum ReportReason {
   OTHER
 }
 
+/// Tiered monetization plans:
+/// - FREE: Basic searching, sending interest.
+/// - PREMIUM: Unlimited chat, direct contact access, prioritized match listing.
 enum MembershipPlan {
   FREE
   PREMIUM
 }
 
+/// Status of the user's current membership subscription.
 enum MembershipStatus {
   ACTIVE
   EXPIRED
   CANCELLED
 }
 
+/// Status of payments processed through Razorpay payment gateway.
 enum PaymentStatus {
-  CREATED
-  AUTHORIZED
-  CAPTURED
-  FAILED
-  REFUNDED
+  CREATED     // Order initialized with Razorpay
+  AUTHORIZED  // Customer payment authorized
+  CAPTURED    // Funds captured successfully; membership activated
+  FAILED      // Payment declined or expired
+  REFUNDED    // Payment refunded to customer
 }
 
+// ============================================================================
+// MODELS (Database Tables)
+// ============================================================================
+
+/// User: Core authentication identity account.
+/// Contains credentials (hashed password, refresh token) and system role.
 model User {
   id                    String              @id @default(cuid())
   email                 String              @unique
-  password              String
+  password              String              // Bcrypt hashed password (10 rounds)
   role                  Role                @default(USER)
-  refreshToken          String?
+  refreshToken          String?             // Hashed JWT refresh token for session rotation
   createdAt             DateTime            @default(now())
-  profile               Profile?
-  preference            PartnerPreference?
+
+  // --- 1-to-1 Relationships ---
+  profile               Profile?            // Personal biography & physical traits
+  preference            PartnerPreference?  // Matchmaking criteria & filters
+  membership            Membership?         // Active subscription & benefits
+
+  // --- 1-to-Many Relationships ---
   sentInterests         Interest[]          @relation("sentInterests")
   receivedInterests     Interest[]          @relation("receivedInterests")
   conversationsAsFirst  Conversation[]     @relation("conversationFirstUser")
@@ -80,61 +119,67 @@ model User {
   blocksReceived        UserBlock[]         @relation("blocked")
   reportsSubmitted      Report[]            @relation("reporter")
   reportsReceived       Report[]            @relation("reported")
-  membership            Membership?
   payments              Payment[]
 }
 
+/// Profile: Detailed public biographical information of a matrimony candidate.
+/// Contains demographics, physical attributes, career, education, and location.
 model Profile {
   id                String   @id @default(cuid())
   firstName         String
   lastName          String
   gender            Gender
-  dateOfBirth       DateTime
-  height            Int
-  weight            Int
-  religion          String?
-  caste             String?
-  motherTongue      String?
-  education         String?
-  occupation        String?
-  annualIncome      Int?
+  dateOfBirth       DateTime // Used to calculate age dynamically in matchmaking
+  height            Int      // Stored in centimetres (e.g. 175)
+  weight            Int      // Stored in kilograms (e.g. 68)
+  religion          String?  // e.g. Hindu, Muslim, Christian, Sikh
+  caste             String?  // Optional community / sub-caste
+  motherTongue      String?  // e.g. Telugu, Hindi, Tamil, Bengali
+  education         String?  // Highest qualification (e.g. B.Tech, MBA, MBBS)
+  occupation        String?  // Current role (e.g. Software Engineer, Doctor)
+  annualIncome      Int?     // Stored in INR (e.g. 1200000 = 12 LPA)
   city              String?
   state             String?
   country           String?
-  aboutMe           String?
-  profilePicture    String?
-  isProfileComplete Boolean  @default(false)
-  isVerified        Boolean  @default(false)
+  aboutMe           String?  // Personal bio / introduction paragraph
+  profilePicture    String?  // Relative URL path or Cloudinary URL
+  isProfileComplete Boolean  @default(false) // True when all 16 mandatory fields are present
+  isVerified        Boolean  @default(false) // Admin approval flag
   userId            String   @unique
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
 
+/// PartnerPreference: Filter criteria used by the matchmaking engine.
+/// Used to calculate compatibility percentage scores for prospective matches.
 model PartnerPreference {
   id           String   @id @default(cuid())
   userId       String   @unique
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  minAge       Int?
-  maxAge       Int?
-  minHeight    Int?
-  maxHeight    Int?
-  religion     String?
-  caste        String?
-  motherTongue String?
-  education    String?
-  occupation   String?
-  minIncome    Int?
-  maxIncome    Int?
-  country      String?
-  state        String?
-  city         String?
+  minAge       Int?     // Minimum partner age (e.g. 24)
+  maxAge       Int?     // Maximum partner age (e.g. 30)
+  minHeight    Int?     // Minimum height in cm
+  maxHeight    Int?     // Maximum height in cm
+  religion     String?  // Desired religion
+  caste        String?  // Desired caste (optional)
+  motherTongue String?  // Preferred primary language
+  education    String?  // Preferred educational level
+  occupation   String?  // Preferred profession
+  minIncome    Int?     // Minimum annual salary in INR
+  maxIncome    Int?     // Maximum annual salary in INR
+  country      String?  // Preferred country of residence
+  state        String?  // Preferred state
+  city         String?  // Preferred city
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Composite index to accelerate geographic preference searches
   @@index([country, state, city])
 }
 
+/// Interest: Expressed interest connection between two matrimony profiles.
+/// Follows a state machine: PENDING -> ACCEPTED / REJECTED / WITHDRAWN.
 model Interest {
   id         String         @id @default(cuid())
   senderId   String
@@ -145,11 +190,15 @@ model Interest {
   sender     User           @relation("sentInterests", fields: [senderId], references: [id], onDelete: Cascade)
   receiver   User           @relation("receivedInterests", fields: [receiverId], references: [id], onDelete: Cascade)
 
+  // Enforce single interest interaction between any pair of users
   @@unique([senderId, receiverId])
+  // Fast query lookup indices for pending incoming/outgoing dashboards
   @@index([receiverId, status])
   @@index([senderId, status])
 }
 
+/// Conversation: One-to-one messaging channel between two users.
+/// Ordered lexicographically by user ID (firstUserId < secondUserId) to ensure uniqueness.
 model Conversation {
   id           String    @id @default(cuid())
   firstUserId  String
@@ -160,35 +209,42 @@ model Conversation {
   secondUser   User      @relation("conversationSecondUser", fields: [secondUserId], references: [id], onDelete: Cascade)
   messages     Message[]
 
+  // Ensure only one conversation thread can exist between two users
   @@unique([firstUserId, secondUserId])
   @@index([secondUserId])
 }
 
+/// Message: Individual chat message sent in a conversation.
 model Message {
   id             String       @id @default(cuid())
   conversationId String
   senderId       String
-  content        String
+  content        String       // Message body (1 - 2000 chars)
   createdAt      DateTime     @default(now())
-  readAt         DateTime?
+  readAt         DateTime?    // Null until recipient opens/reads the message
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User         @relation("messageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
+  // Index for fast timeline chronological querying
   @@index([conversationId, createdAt])
 }
 
+/// Notification: In-app alerts informing users of interactions.
 model Notification {
   id        String           @id @default(cuid())
   userId    String
   type      NotificationType
-  message   String
-  readAt    DateTime?
+  message   String           // Human-readable alert text
+  readAt    DateTime?        // Timestamp when marked as read
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Composite index for fast unread notifications retrieval
   @@index([userId, readAt, createdAt])
 }
 
+/// UserBlock: Mutual exclusion mechanism for privacy and safety.
+/// When user A blocks user B, neither user appears in search, matches, or chat.
 model UserBlock {
   id        String   @id @default(cuid())
   blockerId String
@@ -197,52 +253,57 @@ model UserBlock {
   blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
   blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
 
+  // Enforce unique blocker-to-blocked relationship
   @@unique([blockerId, blockedId])
   @@index([blockedId])
 }
 
+/// Report: Abuse, harassment, or fake profile flag submitted for Admin review.
 model Report {
   id         String       @id @default(cuid())
   reporterId String
   reportedId String
   reason     ReportReason
-  details    String?
-  resolvedAt DateTime?
+  details    String?      // Optional descriptive context provided by reporter
+  resolvedAt DateTime?    // Null while pending admin investigation
   createdAt  DateTime     @default(now())
   reporter   User         @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
   reported   User         @relation("reported", fields: [reportedId], references: [id], onDelete: Cascade)
 
+  // Index for admin dashboard listing unresolved reports
   @@index([reportedId, resolvedAt])
 }
 
+/// Membership: User's subscription record (Free or Premium).
 model Membership {
-  id                 String           @id @default(cuid())
-  userId             String           @unique
-  plan               MembershipPlan   @default(FREE)
-  status             MembershipStatus @default(ACTIVE)
-  startedAt          DateTime         @default(now())
-  expiresAt          DateTime?
+  id                     String           @id @default(cuid())
+  userId                 String           @unique
+  plan                   MembershipPlan   @default(FREE)
+  status                 MembershipStatus @default(ACTIVE)
+  startedAt              DateTime         @default(now())
+  expiresAt              DateTime?        // 30 days from purchase for Premium
   razorpaySubscriptionId String?
-  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payments           Payment[]
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments               Payment[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
   @@index([plan, status])
 }
 
+/// Payment: Razorpay order & transaction verification record.
 model Payment {
   id                String        @id @default(cuid())
   userId            String
   membershipId      String?
-  provider           String        @default("razorpay")
-  providerOrderId   String        @unique
-  providerPaymentId String?       @unique
-  amount            Int
+  provider          String        @default("razorpay")
+  providerOrderId   String        @unique // Razorpay Order ID (e.g. order_O123456789)
+  providerPaymentId String?       @unique // Razorpay Payment ID (e.g. pay_P123456789)
+  amount            Int           // Stored in paise (e.g. 49900 = ₹499.00)
   currency          String        @default("INR")
   status            PaymentStatus @default(CREATED)
-  failureReason     String?
-  paidAt            DateTime?
+  failureReason     String?       // Populated if payment is declined or fails
+  paidAt            DateTime?     // Verification timestamp
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -253,12 +314,13 @@ model Payment {
   @@index([status, createdAt])
 }
 
+/// PaymentEvent: Audit log of Razorpay Webhook events for idempotency & replay safety.
 model PaymentEvent {
   id              String   @id @default(cuid())
   provider        String   @default("razorpay")
-  providerEventId String   @unique
-  eventType       String
-  payload         Json
+  providerEventId String   @unique // Unique event ID from Razorpay webhook payload
+  eventType       String   // e.g. "payment.captured", "payment.failed"
+  payload         Json     // Full raw JSON payload received from Razorpay
   processedAt     DateTime @default(now())
   paymentId       String?
   payment         Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)

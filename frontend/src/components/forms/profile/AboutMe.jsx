@@ -1,14 +1,26 @@
-function AboutMe({
-  methods,
-  nextStep,
-  previousStep,
-}) {
+/**
+ * AboutMe Form Step Component
+ *
+ * Step 3 in the profile creation wizard:
+ * - Collects cultural & religious identity (Religion, Caste, Mother Tongue).
+ * - Collects personal biography (minimum 30 characters).
+ * - Validates required fields using react-hook-form `trigger` before proceeding.
+ *
+ * @param {object} props
+ * @param {object} props.methods - react-hook-form instance methods
+ * @param {Function} props.nextStep - Transition function to step 4
+ * @param {Function} props.previousStep - Transition function back to step 2
+ */
+function AboutMe({ methods, nextStep, previousStep }) {
   const {
     register,
     trigger,
     formState: { errors },
   } = methods;
 
+  /**
+   * Validates current step fields before navigating to the next step
+   */
   const handleNext = async () => {
     const valid = await trigger([
       "religion",
@@ -24,18 +36,12 @@ function AboutMe({
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-8">
-        About Me
-      </h2>
+      <h2 className="text-2xl font-bold mb-8">About Me</h2>
 
       <div className="grid grid-cols-2 gap-6">
-
         {/* Religion */}
         <div>
-          <label className="block mb-2">
-            Religion
-          </label>
-
+          <label className="block mb-2 font-medium">Religion</label>
           <input
             {...register("religion", {
               required: "Religion is required",
@@ -43,7 +49,6 @@ function AboutMe({
             className="w-full border rounded-lg p-3"
             placeholder="Hindu"
           />
-
           <p className="text-red-500 text-sm mt-1">
             {errors.religion?.message}
           </p>
@@ -51,10 +56,7 @@ function AboutMe({
 
         {/* Caste */}
         <div>
-          <label className="block mb-2">
-            Caste
-          </label>
-
+          <label className="block mb-2 font-medium">Caste</label>
           <input
             {...register("caste", {
               required: "Caste is required",
@@ -62,7 +64,6 @@ function AboutMe({
             className="w-full border rounded-lg p-3"
             placeholder="Kamma"
           />
-
           <p className="text-red-500 text-sm mt-1">
             {errors.caste?.message}
           </p>
@@ -70,10 +71,7 @@ function AboutMe({
 
         {/* Mother Tongue */}
         <div className="col-span-2">
-          <label className="block mb-2">
-            Mother Tongue
-          </label>
-
+          <label className="block mb-2 font-medium">Mother Tongue</label>
           <input
             {...register("motherTongue", {
               required: "Mother tongue is required",
@@ -81,18 +79,14 @@ function AboutMe({
             className="w-full border rounded-lg p-3"
             placeholder="Telugu"
           />
-
           <p className="text-red-500 text-sm mt-1">
             {errors.motherTongue?.message}
           </p>
         </div>
 
-        {/* About Me */}
+        {/* About Me / Bio */}
         <div className="col-span-2">
-          <label className="block mb-2">
-            About Me
-          </label>
-
+          <label className="block mb-2 font-medium">About Me</label>
           <textarea
             rows={6}
             {...register("aboutMe", {
@@ -103,22 +97,20 @@ function AboutMe({
               },
             })}
             className="w-full border rounded-lg p-3 resize-none"
-            placeholder="Tell us about yourself..."
+            placeholder="Tell us about yourself, your values, interests, and what you seek in a life partner..."
           />
-
           <p className="text-red-500 text-sm mt-1">
             {errors.aboutMe?.message}
           </p>
         </div>
-
       </div>
 
+      {/* Step Navigation Controls */}
       <div className="flex justify-between mt-10">
-
         <button
           type="button"
           onClick={previousStep}
-          className="bg-gray-500 hover:bg-gray-600 text-white px-8 py-3 rounded-lg"
+          className="bg-gray-500 hover:bg-gray-600 text-white px-8 py-3 rounded-lg font-medium transition"
         >
           Previous
         </button>
@@ -126,14 +118,13 @@ function AboutMe({
         <button
           type="button"
           onClick={handleNext}
-          className="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 rounded-lg"
+          className="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 rounded-lg font-medium transition"
         >
           Next
         </button>
-
       </div>
     </div>
   );
 }
 
-export default AboutMe;
+export default AboutMe;

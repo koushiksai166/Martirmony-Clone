@@ -1,3 +1,28 @@
+/**
+ * ============================================================================
+ * PROFILE SERVICE
+ * ============================================================================
+ * Handles all CRUD and search operations for matrimony candidate profiles.
+ *
+ * Operations:
+ * - create()           – Create a new profile for the authenticated user
+ * - findMyProfile()    – Fetch the authenticated user's own profile
+ * - findPublicProfile()– Fetch a publicly visible profile by profile ID (for browsing)
+ * - search()           – Paginated, multi-filter profile discovery with block exclusion
+ * - update()           – Update the authenticated user's profile fields
+ * - remove()           – Delete the authenticated user's profile
+ *
+ * Profile Completion:
+ * isProfileComplete is computed via isComplete() which checks that all 16 key
+ * demographic fields are populated. Incomplete profiles are excluded from search results.
+ *
+ * Search Engine:
+ * The search() method supports 12 filters (gender, age, height, income, religion, caste,
+ * motherTongue, education, occupation, city, state, country) with pagination.
+ * Blocked users are automatically excluded from all search results.
+ * ============================================================================
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -15,6 +40,11 @@ import { SearchProfilesDto } from './dto/search-profiles.dto';
 export class ProfileService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Checks whether all required profile fields are populated.
+   * A profile must have all 16 fields completed before it is considered
+   * discoverable (isProfileComplete = true) and eligible to appear in search results.
+   */
   private isComplete(profile: {
     firstName: string;
     lastName: string;
@@ -32,7 +62,7 @@ export class ProfileService {
     state: string | null;
     country: string | null;
     aboutMe: string | null;
-  }) {
+  }): boolean {
     return [
       profile.firstName,
       profile.lastName,
@@ -54,61 +84,59 @@ export class ProfileService {
   }
 
   /**
-   * Create Profile
+   * Creates a new profile linked to the authenticated user.
+   * Throws 400 if a profile already exists (one profile per account).
+   * Automatically computes isProfileComplete after creation.
+   * @param userId The authenticated user's ID from JWT
+   * @param dto    Validated profile field values
    */
   async create(userId: string, dto: CreateProfileDto) {
-    // Check if profile already exists
+    // Prevent duplicate profiles per user account
     const existingProfile = await this.prisma.profile.findUnique({
-      where: {
-        userId,
-      },
+      where: { userId },
     });
 
     if (existingProfile) {
-      throw new BadRequestException(
-        'Profile already exists',
-      );
+      throw new BadRequestException('Profile already exists');
     }
 
     try {
       const profile = await this.prisma.profile.create({
         data: {
           ...dto,
-          dateOfBirth: new Date(dto.dateOfBirth),
+          dateOfBirth: new Date(dto.dateOfBirth), // Convert ISO date string to Date object
           userId,
         },
       });
 
+      // Evaluate and persist the completeness flag
       return this.prisma.profile.update({
         where: { id: profile.id },
         data: { isProfileComplete: this.isComplete(profile) },
       });
     } catch (error) {
+      // Handle race condition duplicate inserts (P2002 = unique constraint violation)
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
         throw new BadRequestException('Profile already exists');
       }
-
       throw error;
     }
   }
 
   /**
-   * Get Logged-in User Profile
+   * Returns the authenticated user's complete profile record.
+   * Throws 404 if no profile exists for this user.
    */
   async findMyProfile(userId: string) {
     const profile = await this.prisma.profile.findUnique({
-      where: {
-        userId,
-      },
+      where: { userId },
     });
 
     if (!profile) {
-      throw new NotFoundException(
-        'Profile not found',
-      );
+      throw new NotFoundException('Profile not found');
     }
 
     return {
@@ -117,6 +145,11 @@ export class ProfileService {
     };
   }
 
+  /**
+   * Returns a sanitized public view of a profile for discovery/browsing.
+   * Excludes sensitive fields like weight. Identified by profile.id (not userId).
+   * @param id Profile unique ID
+   */
   async findPublicProfile(id: string) {
     const profile = await this.prisma.profile.findUnique({
       where: { id },
@@ -153,7 +186,21 @@ export class ProfileService {
     return { profile };
   }
 
+  /**
+   * Paginated profile search with up to 12 concurrent filter criteria.
+   *
+   * Filter logic:
+   * - Age filters use date-of-birth arithmetic for accurate matching.
+   * - Text filters (religion, caste, etc.) use case-insensitive partial matching.
+   * - Height and income filters use numeric range comparisons.
+   * - Blocked users (in both directions) are automatically excluded.
+   * - Only complete profiles (isProfileComplete = true) appear in results.
+   *
+   * @param userId Authenticated user ID (excluded from their own search results)
+   * @param query  Validated filter and pagination parameters
+   */
   async search(userId: string, query: SearchProfilesDto) {
+    // Validate range filters — min cannot exceed max
     if (
       (query.minAge !== undefined && query.maxAge !== undefined && query.minAge > query.maxAge) ||
       (query.minHeight !== undefined && query.maxHeight !== undefined && query.minHeight > query.maxHeight) ||
@@ -163,30 +210,58 @@ export class ProfileService {
     }
 
     const now = new Date();
+
+    // Fetch all user IDs the current user has blocked or been blocked by
     const blocks = await this.prisma.userBlock.findMany({
       where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
       select: { blockerId: true, blockedId: true },
     });
-    const blockedUserIds = blocks.map((block) => block.blockerId === userId ? block.blockedId : block.blockerId);
+    const blockedUserIds = blocks.map((block) =>
+      block.blockerId === userId ? block.blockedId : block.blockerId,
+    );
+
+    // Translate age bounds to date-of-birth range
     const dateOfBirth: { gte?: Date; lte?: Date } = {};
     if (query.maxAge !== undefined) {
-      dateOfBirth.gte = new Date(now.getFullYear() - query.maxAge - 1, now.getMonth(), now.getDate() + 1);
+      // Older than maxAge years: born before (now - maxAge years - 1 day)
+      dateOfBirth.gte = new Date(
+        now.getFullYear() - query.maxAge - 1,
+        now.getMonth(),
+        now.getDate() + 1,
+      );
     }
     if (query.minAge !== undefined) {
-      dateOfBirth.lte = new Date(now.getFullYear() - query.minAge, now.getMonth(), now.getDate());
+      // Younger than minAge years: born after (now - minAge years)
+      dateOfBirth.lte = new Date(
+        now.getFullYear() - query.minAge,
+        now.getMonth(),
+        now.getDate(),
+      );
     }
 
+    // Build Prisma where clause from active filters
     const where: Prisma.ProfileWhereInput = {
-      userId: { notIn: [userId, ...blockedUserIds] },
-      isProfileComplete: true,
+      userId: { notIn: [userId, ...blockedUserIds] }, // Exclude self and blocked users
+      isProfileComplete: true,                          // Only show complete profiles
       ...(query.gender && { gender: query.gender }),
       ...(Object.keys(dateOfBirth).length > 0 && { dateOfBirth }),
       ...(query.minHeight !== undefined || query.maxHeight !== undefined
-        ? { height: { ...(query.minHeight !== undefined && { gte: query.minHeight }), ...(query.maxHeight !== undefined && { lte: query.maxHeight }) } }
+        ? {
+            height: {
+              ...(query.minHeight !== undefined && { gte: query.minHeight }),
+              ...(query.maxHeight !== undefined && { lte: query.maxHeight }),
+            },
+          }
         : {}),
       ...(query.minIncome !== undefined || query.maxIncome !== undefined
-        ? { annualIncome: { ...(query.minIncome !== undefined && { gte: query.minIncome }), ...(query.maxIncome !== undefined && { lte: query.maxIncome }) } }
+        ? {
+            annualIncome: {
+              ...(query.minIncome !== undefined && { gte: query.minIncome }),
+              ...(query.maxIncome !== undefined && { lte: query.maxIncome }),
+            },
+          }
         : {}),
+      // Case-insensitive partial text matching for lifestyle fields
       ...this.textFilter('religion', query.religion),
       ...this.textFilter('caste', query.caste),
       ...this.textFilter('motherTongue', query.motherTongue),
@@ -197,7 +272,10 @@ export class ProfileService {
       ...this.textFilter('city', query.city),
     };
 
+    // Pagination offset
     const skip = (query.page - 1) * query.limit;
+
+    // Fields to return for each profile card in search results
     const select = {
       id: true,
       firstName: true,
@@ -215,85 +293,84 @@ export class ProfileService {
       isVerified: true,
     } as const;
 
+    // Execute paginated query and total count in a single transaction
     const [profiles, total] = await this.prisma.$transaction([
-      this.prisma.profile.findMany({ where, select, skip, take: query.limit, orderBy: { updatedAt: 'desc' } }),
+      this.prisma.profile.findMany({
+        where,
+        select,
+        skip,
+        take: query.limit,
+        orderBy: { updatedAt: 'desc' }, // Most recently updated profiles first
+      }),
       this.prisma.profile.count({ where }),
     ]);
 
-    return { profiles, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
-  }
-
-  private textFilter(field: string, value?: string) {
-    return value ? { [field]: { contains: value, mode: 'insensitive' as const } } : {};
+    return {
+      profiles,
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+      },
+    };
   }
 
   /**
-   * Update Profile
+   * Builds a case-insensitive partial-match filter for text fields.
+   * Returns empty object if value is not provided (filter is skipped).
+   * @param field  Database column name
+   * @param value  Optional search term
    */
-  async update(
-    userId: string,
-    dto: UpdateProfileDto,
-  ) {
-    // Check if profile exists
-    const profile = await this.prisma.profile.findUnique({
-      where: {
-        userId,
-      },
-    });
+  private textFilter(field: string, value?: string) {
+    return value
+      ? { [field]: { contains: value, mode: 'insensitive' as const } }
+      : {};
+  }
 
+  /**
+   * Updates editable fields on the authenticated user's profile.
+   * Recomputes isProfileComplete after every update.
+   * @param userId The authenticated user's ID
+   * @param dto    Partial set of profile fields to update (all optional via PartialType)
+   */
+  async update(userId: string, dto: UpdateProfileDto) {
+    // Ensure profile exists before attempting update
+    const profile = await this.prisma.profile.findUnique({ where: { userId } });
     if (!profile) {
-      throw new NotFoundException(
-        'Profile not found',
-      );
+      throw new NotFoundException('Profile not found');
     }
 
     const updatedProfile = await this.prisma.profile.update({
-      where: {
-        userId,
-      },
+      where: { userId },
       data: {
         ...dto,
-
-        ...(dto.dateOfBirth && {
-          dateOfBirth: new Date(dto.dateOfBirth),
-        }),
+        // Convert ISO date string to Date object only if dateOfBirth is included
+        ...(dto.dateOfBirth && { dateOfBirth: new Date(dto.dateOfBirth) }),
       },
     });
 
+    // Re-evaluate profile completeness after update
     return this.prisma.profile.update({
       where: { id: updatedProfile.id },
       data: { isProfileComplete: this.isComplete(updatedProfile) },
     });
   }
 
-/**
- * Delete Profile
- */
-async remove(userId: string) {
-  // Check if profile exists
-  const profile = await this.prisma.profile.findUnique({
-    where: {
-      userId,
-    },
-  });
+  /**
+   * Permanently deletes the authenticated user's profile.
+   * This removes the profile from all search results and match engines.
+   * The user account (email, password) remains intact.
+   * @param userId The authenticated user's ID
+   */
+  async remove(userId: string) {
+    const profile = await this.prisma.profile.findUnique({ where: { userId } });
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
 
-  if (!profile) {
-    throw new NotFoundException(
-      'Profile not found',
-    );
+    await this.prisma.profile.delete({ where: { userId } });
+
+    return { message: 'Profile deleted successfully' };
   }
-
-  // Delete profile
-  await this.prisma.profile.delete({
-    where: {
-      userId,
-    },
-  });
-
-  return {
-    message: 'Profile deleted successfully',
-  };
-}
-
-
 }

@@ -1,3 +1,18 @@
+/**
+ * ============================================================================
+ * CREATE PROFILE DTO
+ * ============================================================================
+ * Validates request body for POST /profile.
+ *
+ * Required fields: firstName, lastName, gender, dateOfBirth, height, weight, annualIncome
+ * Optional fields: religion, caste, motherTongue, education, occupation,
+ *                  city, state, country, aboutMe, profilePicture
+ *
+ * All 16 fields (required + optional) are checked by ProfileService.isComplete()
+ * to determine whether the profile is discoverable in search results.
+ * ============================================================================
+ */
+
 import {
   IsDateString,
   IsEnum,
@@ -10,6 +25,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Gender } from '@prisma/client';
 
 export class CreateProfileDto {
+  // ---- Required Personal Information ----
+
   @ApiProperty({
     example: 'Sai',
     description: 'First name of the user',
@@ -27,14 +44,14 @@ export class CreateProfileDto {
   @ApiProperty({
     enum: Gender,
     example: Gender.MALE,
-    description: 'Gender of the user',
+    description: 'Gender of the user (MALE or FEMALE)',
   })
   @IsEnum(Gender)
   gender: Gender;
 
   @ApiProperty({
     example: '2002-08-15',
-    description: 'Date of birth',
+    description: 'Date of birth in ISO 8601 format (YYYY-MM-DD)',
   })
   @IsDateString()
   dateOfBirth: string;
@@ -43,7 +60,7 @@ export class CreateProfileDto {
     example: 178,
     description: 'Height in centimeters',
   })
-  @Type(() => Number)
+  @Type(() => Number) // Transform query string numbers for multipart/form-data
   @IsNumber()
   height: number;
 
@@ -54,6 +71,8 @@ export class CreateProfileDto {
   @Type(() => Number)
   @IsNumber()
   weight: number;
+
+  // ---- Optional Cultural & Professional Fields ----
 
   @ApiPropertyOptional({
     example: 'Hindu',
@@ -98,6 +117,8 @@ export class CreateProfileDto {
   @IsNumber()
   annualIncome: number;
 
+  // ---- Optional Location Fields ----
+
   @ApiPropertyOptional({
     example: 'Hyderabad',
   })
@@ -118,6 +139,8 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  // ---- Optional Bio & Media ----
 
   @ApiPropertyOptional({
     example: 'Passionate Full Stack Developer looking for a life partner.',
