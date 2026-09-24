@@ -1,3 +1,18 @@
+/**
+ * ============================================================================
+ * APP ROUTES CONFIGURATION (AppRoutes.jsx)
+ * ============================================================================
+ * Defines the React Router DOM hierarchy for the entire application.
+ *
+ * Route Types:
+ * 1. Public Routes: Accessible to anyone (e.g., Home).
+ * 2. Auth-Restricted (<PublicRoute>): Accessible ONLY to unauthenticated users 
+ *    (e.g., Login, Register). Redirects to /dashboard if already logged in.
+ * 3. Protected (<ProtectedRoute>): Accessible ONLY to authenticated users.
+ *    Redirects to /login if the user is not authenticated.
+ * ============================================================================
+ */
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Home from "../pages/home/Home";
@@ -25,9 +40,12 @@ function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
+        {/* ======================= */}
+        {/* PUBLIC & UN-AUTH ROUTES */}
+        {/* ======================= */}
         <Route path="/" element={<Home />} />
 
+        {/* Login/Register use PublicRoute to prevent logged-in users from seeing them */}
         <Route
           path="/login"
           element={
@@ -46,7 +64,10 @@ function AppRoutes() {
           }
         />
 
-        {/* Protected */}
+        {/* ======================= */}
+        {/* PROTECTED ROUTES        */}
+        {/* ======================= */}
+        
         <Route
           path="/dashboard"
           element={
@@ -56,6 +77,7 @@ function AppRoutes() {
           }
         />
 
+        {/* Profile Management */}
         <Route
           path="/profile"
           element={
@@ -64,7 +86,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/profile/create"
           element={
@@ -73,7 +94,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/profile/edit"
           element={
@@ -83,16 +103,24 @@ function AppRoutes() {
           }
         />
 
+        {/* Settings & Discovery */}
         <Route path="/preferences" element={<ProtectedRoute><Preferences /></ProtectedRoute>} />
         <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
         <Route path="/matches" element={<ProtectedRoute><Matches /></ProtectedRoute>} />
+        
+        {/* Interactions */}
         <Route path="/interests" element={<ProtectedRoute><Interests /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+        
+        {/* Administration & Billing */}
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/membership" element={<ProtectedRoute><Membership /></ProtectedRoute>} />
+        
+        {/* Public Profile View (Requires auth to view others) */}
         <Route path="/profile/:id" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
 
+        {/* Fallback 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

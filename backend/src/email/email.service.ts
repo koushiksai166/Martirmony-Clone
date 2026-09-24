@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * EMAIL SERVICE
+ * ============================================================================
+ * Handles sending transactional emails (like Welcome emails) using Nodemailer.
+ * 
+ * Configuration:
+ * Supports standard SMTP config (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
+ * OR Gmail app-password shorthand (EMAIL_USER, EMAIL_PASS).
+ * If neither is configured in .env, emails are gracefully disabled.
+ * ============================================================================
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
@@ -9,35 +22,50 @@ export class EmailService {
   constructor() {
     const {
       // Generic SMTP
-      SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
+      SMTP_HOST,
+      SMTP_PORT,
+      SMTP_USER,
+      SMTP_PASS,
       // Gmail shorthand (existing .env keys)
-      EMAIL_USER, EMAIL_PASS,
+      EMAIL_USER,
+      EMAIL_PASS,
     } = process.env;
 
+    // 1. Try standard SMTP first
     if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-      // Explicit SMTP config
       this.transporter = nodemailer.createTransport({
         host: SMTP_HOST,
         port: Number(SMTP_PORT ?? 587),
-        secure: Number(SMTP_PORT) === 465,
+        secure: Number(SMTP_PORT) === 465, // true for 465, false for other ports
         auth: { user: SMTP_USER, pass: SMTP_PASS },
       });
       this.logger.log(`Email configured via SMTP (${SMTP_HOST})`);
-    } else if (EMAIL_USER && EMAIL_PASS) {
-      // Gmail app-password shorthand
+    } 
+    // 2. Fall back to Gmail shorthand
+    else if (EMAIL_USER && EMAIL_PASS) {
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: { user: EMAIL_USER, pass: EMAIL_PASS },
       });
       this.logger.log(`Email configured via Gmail (${EMAIL_USER})`);
-    } else {
+    } 
+    // 3. Gracefully disable if no config is found
+    else {
       this.logger.warn('SMTP not configured — emails are disabled');
     }
   }
 
+  /**
+   * Fires a Welcome email to the newly registered user.
+   * This method catches and logs its own errors so that a failure here
+   * doesn't abort the user registration transaction.
+   */
   async sendWelcome(to: string, firstName: string): Promise<void> {
-    if (!this.transporter) return;
+    if (!this.transporter) return; // Exit silently if emails aren't configured
+
+    // Determine the sender address
     const from = process.env.SMTP_FROM ?? process.env.EMAIL_USER ?? process.env.SMTP_USER;
+    
     try {
       await this.transporter.sendMail({
         from: `"Saanjh" <${from}>`,
@@ -52,6 +80,10 @@ export class EmailService {
   }
 }
 
+/**
+ * Returns a static, inline-styled HTML template for the Welcome email.
+ * Inline CSS is required because most email clients strip <style> blocks.
+ */
 function welcomeTemplate(firstName: string): string {
   return `
 <!DOCTYPE html>
