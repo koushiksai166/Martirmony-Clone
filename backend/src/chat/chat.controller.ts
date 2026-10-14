@@ -15,7 +15,7 @@
  * ============================================================================
  */
 
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 
@@ -23,8 +23,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { ChatService } from './chat.service';
 
-/** Inline DTO for message sending */
 class MessageDto {
+  @IsString()
+  content: string;
+}
+
+class EditMessageDto {
   @IsString()
   content: string;
 }
@@ -73,5 +77,26 @@ export class ChatController {
   @ApiOperation({ summary: 'Mark a message as read' })
   read(@GetUser() user: any, @Param('id') id: string) {
     return this.chat.markRead(user.id, id);
+  }
+
+  /** Mark all messages in a conversation as read */
+  @Patch('conversations/:id/read')
+  @ApiOperation({ summary: 'Mark all messages in a conversation as read' })
+  readConversation(@GetUser() user: any, @Param('id') id: string) {
+    return this.chat.markConversationRead(user.id, id);
+  }
+
+  /** Edit a sent message */
+  @Patch('messages/:id')
+  @ApiOperation({ summary: 'Edit a message' })
+  edit(@GetUser() user: any, @Param('id') id: string, @Body() dto: EditMessageDto) {
+    return this.chat.editMessage(user.id, id, dto.content);
+  }
+
+  /** Soft-delete a message */
+  @Delete('messages/:id')
+  @ApiOperation({ summary: 'Delete a message' })
+  remove(@GetUser() user: any, @Param('id') id: string) {
+    return this.chat.deleteMessage(user.id, id);
   }
 }

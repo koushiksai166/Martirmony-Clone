@@ -222,6 +222,9 @@ model Message {
   content        String       // Message body (1 - 2000 chars)
   createdAt      DateTime     @default(now())
   readAt         DateTime?    // Null until recipient opens/reads the message
+  deliveredAt    DateTime?    // Set when recipient's socket receives the message
+  editedAt       DateTime?    // Set when sender edits the message
+  deletedAt      DateTime?    // Soft-delete timestamp; content replaced with null on read
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User         @relation("messageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
