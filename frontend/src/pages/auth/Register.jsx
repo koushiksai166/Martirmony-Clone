@@ -81,7 +81,7 @@ function Register() {
     <AuthLayout eyebrow="Begin with intention">
       {/* Mobile brand header */}
       <div className="mb-9 lg:hidden">
-        <p className="display-font text-2xl font-bold">Saanjh</p>
+        <p className="display-font text-2xl font-bold">Vivah</p>
       </div>
 
       {/* Page Title & Subtitle */}
@@ -249,4 +249,4 @@ function Register() {
   );
 }
 
-export default Register;
+export default Register;

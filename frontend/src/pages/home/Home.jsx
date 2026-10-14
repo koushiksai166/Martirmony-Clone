@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 /**
  * Home Landing Page Component
  *
- * Public entry point and marketing landing page for Saanjh:
+ * Public entry point and marketing landing page for Vivah:
  * - Header: Navigation brand logo, Sign in, and Create Profile buttons.
  * - Hero Section: Value statement headline, conversion CTAs, trust badges, and decorative card preview.
  * - Feature Highlights: 3-column value propositions (Clarity, Trust, Intention).
@@ -24,9 +24,9 @@ function Home() {
       <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
         <Link to="/" className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--rose)] font-bold text-white">
-            M
+            V
           </span>
-          <span className="display-font text-xl font-bold">Saanjh</span>
+          <span className="display-font text-xl font-bold">Vivah</span>
         </Link>
         <nav className="flex items-center gap-2">
           <Link to="/login" className="btn-quiet">
@@ -144,7 +144,7 @@ function Home() {
 
       {/* Footer */}
       <footer className="border-t border-[var(--line)] px-5 py-7 text-center text-sm text-[var(--muted)]">
-        Saanjh · Meaningful beginnings
+        Vivah · Meaningful beginnings
       </footer>
     </div>
   );

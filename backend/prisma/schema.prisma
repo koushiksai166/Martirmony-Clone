@@ -1,7 +1,7 @@
 // ============================================================================
 // PRISMA SCHEMA DEFINITION
 // ============================================================================
-// This schema defines the database structure for the Saanjh Matrimony Platform.
+// This schema defines the database structure for the Vivah Matrimony Platform.
 // It uses PostgreSQL as the database provider and Prisma as the Object-Relational
 // Mapper (ORM) to provide type-safe queries in the NestJS backend.
 // ============================================================================

@@ -40,6 +40,7 @@ function ReviewSubmit({ methods, previousStep }) {
         gender: values.gender,
         dateOfBirth: values.dateOfBirth,
         height: values.height,
+        weight: values.weight,
         religion: values.religion,
         caste: values.caste,
         motherTongue: values.motherTongue,
@@ -110,6 +111,9 @@ function ReviewSubmit({ methods, previousStep }) {
           <strong>Height:</strong> {values.height} cm
         </div>
         <div>
+          <strong>Weight:</strong> {values.weight} kg
+        </div>
+        <div>
           <strong>Religion:</strong> {values.religion}
         </div>
         <div>
@@ -164,4 +168,3 @@ function ReviewSubmit({ methods, previousStep }) {
 }
 
 export default ReviewSubmit;
-

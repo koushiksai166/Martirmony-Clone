@@ -109,7 +109,7 @@ function BasicInfo({ methods, nextStep }) {
       <div className="grid grid-cols-2 gap-6">
         {/* First Name (Read-only pre-filled from registration) */}
         <div>
-          <label className="block mb-2 font-medium">First Name</label>
+          <label className="block mb-2 font-medium">First Name <span className="text-red-500">*</span></label>
           <input
             {...register("firstName", { required: "First name is required" })}
             className="w-full border rounded-lg p-3 bg-slate-50 text-slate-500 cursor-not-allowed"
@@ -119,7 +119,7 @@ function BasicInfo({ methods, nextStep }) {
 
         {/* Last Name (Read-only pre-filled from registration) */}
         <div>
-          <label className="block mb-2 font-medium">Last Name</label>
+          <label className="block mb-2 font-medium">Last Name <span className="text-red-500">*</span></label>
           <input
             {...register("lastName", { required: "Last name is required" })}
             className="w-full border rounded-lg p-3 bg-slate-50 text-slate-500 cursor-not-allowed"
@@ -129,7 +129,7 @@ function BasicInfo({ methods, nextStep }) {
 
         {/* Gender */}
         <div>
-          <label className="block mb-2 font-medium">Gender</label>
+          <label className="block mb-2 font-medium">Gender <span className="text-red-500">*</span></label>
           <select
             {...register("gender", { required: "Gender is required" })}
             className="w-full border rounded-lg p-3"
@@ -143,7 +143,7 @@ function BasicInfo({ methods, nextStep }) {
 
         {/* Date of Birth (with 18+ years validation check) */}
         <div>
-          <label className="block mb-2 font-medium">Date of Birth</label>
+          <label className="block mb-2 font-medium">Date of Birth <span className="text-red-500">*</span></label>
           <input
             type="date"
             {...register("dateOfBirth", {
@@ -180,7 +180,7 @@ function BasicInfo({ methods, nextStep }) {
 
         {/* Height in cm and converted feet/inches display */}
         <div>
-          <label className="block mb-2 font-medium">Height (cm)</label>
+          <label className="block mb-2 font-medium">Height (cm) <span className="text-red-500">*</span></label>
           <select
             {...register("height", { required: "Height is required" })}
             className="w-full border rounded-lg p-3"
@@ -201,7 +201,7 @@ function BasicInfo({ methods, nextStep }) {
 
         {/* Weight in kilograms */}
         <div>
-          <label className="block mb-2 font-medium">Weight (kg)</label>
+          <label className="block mb-2 font-medium">Weight (kg) <span className="text-red-500">*</span></label>
           <select
             {...register("weight", { required: "Weight is required" })}
             className="w-full border rounded-lg p-3"
@@ -231,4 +231,4 @@ function BasicInfo({ methods, nextStep }) {
   );
 }
 
-export default BasicInfo;
+export default BasicInfo;

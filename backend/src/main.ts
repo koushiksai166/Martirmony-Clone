@@ -86,9 +86,9 @@ async function bootstrap() {
    * Enables interactive testing of all endpoints and documents JWT Bearer authentication.
    */
   const config = new DocumentBuilder()
-    .setTitle('Saanjh Matrimony API')
+    .setTitle('Vivah Matrimony API')
     .setDescription(
-      'REST API documentation for the Saanjh Matrimony platform, including Auth, Profiles, Matchmaking, Chat, and Payments.',
+      'REST API documentation for the Vivah Matrimony platform, including Auth, Profiles, Matchmaking, Chat, and Payments.',
     )
     .setVersion('1.0')
     .addBearerAuth()

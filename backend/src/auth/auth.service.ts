@@ -2,7 +2,7 @@
  * ============================================================================
  * AUTH SERVICE
  * ============================================================================
- * Provides all authentication business logic for the Saanjh platform.
+ * Provides all authentication business logic for the Vivah platform.
  *
  * Responsibilities:
  * 1. register()       – Hash password, create user, send welcome email.

@@ -78,7 +78,7 @@ function Membership() {
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
-        name: "Saanjh",
+        name: "Vivah",
         description: "Premium membership",
         order_id: order.orderId,
         handler: async (response) => {

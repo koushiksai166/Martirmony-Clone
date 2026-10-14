@@ -54,10 +54,10 @@ function DashboardLayout({ children }) {
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--rose)] text-lg font-bold text-white">
-            M
+            V
           </div>
           <div>
-            <p className="display-font text-xl font-bold">Saanjh</p>
+            <p className="display-font text-xl font-bold">Vivah</p>
             <p className="text-xs text-[var(--muted)]">Meaningful beginnings</p>
           </div>
         </div>

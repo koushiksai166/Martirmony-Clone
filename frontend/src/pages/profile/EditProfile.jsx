@@ -50,6 +50,7 @@ function EditProfile() {
         "gender",
         "dateOfBirth",
         "height",
+        "weight",
         "religion",
         "caste",
         "motherTongue",
@@ -89,9 +90,8 @@ function EditProfile() {
   /**
    * Helper function to render consistent form inputs
    */
-  const input = (name, label, options = {}) => (
-    <label className="block" key={name}>
-      <span className="text-sm font-medium text-slate-700">{label}</span>
+  const input = (name, label, options = {}) => (    <label className="block" key={name}>
+      <span className="text-sm font-medium text-slate-700" dangerouslySetInnerHTML={{ __html: label }}></span>
       <input
         {...register(name, options)}
         type={
@@ -143,19 +143,61 @@ function EditProfile() {
 
         {/* Profile Form Fields */}
         <section className="grid gap-5 rounded-xl bg-white p-6 shadow-sm sm:grid-cols-2">
-          {input("firstName", "First name", {
+          {input("firstName", "First name <span class='text-red-500'>*</span>", {
             required: "First name is required",
           })}
-          {input("lastName", "Last name", {
+          {input("lastName", "Last name <span class='text-red-500'>*</span>", {
             required: "Last name is required",
           })}
-          {input("dateOfBirth", "Date of birth", {
+          {input("dateOfBirth", "Date of birth <span class='text-red-500'>*</span>", {
             required: "Date of birth is required",
           })}
-          {input("height", "Height (cm)", {
+          {input("height", "Height (cm) <span class='text-red-500'>*</span>", {
             required: "Height is required",
             valueAsNumber: true,
           })}
+          <div>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">Weight (kg)</span>
+              <select
+                {...register("weight", { 
+                  required: "Weight is required",
+                  valueAsNumber: true,
+                })}
+                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+              >
+                <option value="">Select Weight</option>
+                {Array.from({ length: 151 }, (_, i) => 40 + i).map((kg) => (
+                  <option key={kg} value={kg}>
+                    {kg} kg
+                  </option>
+                ))}
+              </select>
+              {errors.weight && (
+                <span className="mt-1 block text-sm text-red-600">
+                  {errors.weight.message}
+                </span>
+              )}
+            </label>
+          </div>
+          <div>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">Gender</span>
+              <select
+                {...register("gender", { required: "Gender is required" })}
+                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+              >
+                <option value="">Select Gender</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+              </select>
+              {errors.gender && (
+                <span className="mt-1 block text-sm text-red-600">
+                  {errors.gender.message}
+                </span>
+              )}
+            </label>
+          </div>
           {input("religion", "Religion")}
           {input("caste", "Caste")}
           {input("motherTongue", "Mother tongue")}
@@ -198,4 +240,3 @@ function EditProfile() {
 }
 
 export default EditProfile;
-

@@ -35,6 +35,7 @@ function CreateProfile() {
       gender: "",
       dateOfBirth: "",
       height: "",
+      weight: "",
 
       religion: "",
       caste: "",
@@ -102,4 +103,4 @@ function CreateProfile() {
   );
 }
 
-export default CreateProfile;
+export default CreateProfile;

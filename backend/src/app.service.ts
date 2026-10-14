@@ -14,6 +14,6 @@ export class AppService {
    * Returns a standard welcome message.
    */
   getHello(): string {
-    return 'Welcome to Saanjh Matrimony API';
+    return 'Welcome to Vivah Matrimony API';
   }
 }

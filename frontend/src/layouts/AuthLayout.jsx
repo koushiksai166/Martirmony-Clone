@@ -27,7 +27,7 @@ function AuthLayout({ children, eyebrow = "A more meaningful way to meet" }) {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--rose)] font-bold">
               M
             </div>
-            <span className="display-font text-2xl font-bold">Saanjh</span>
+            <span className="display-font text-2xl font-bold">Vivah</span>
           </div>
 
           {/* Hero text */}

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: saanjh-api
+    name: Vivah-api
     runtime: node
     rootDir: backend
     buildCommand: npm ci && npx prisma generate && npm run build
@@ -13,7 +13,7 @@ services:
         value: 10000
       - key: DATABASE_URL
         fromDatabase:
-          name: saanjh-db
+          name: Vivah-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
@@ -35,7 +35,7 @@ services:
         value: INR
 
 databases:
-  - name: saanjh-db
-    databaseName: saanjh
-    user: saanjh
+  - name: Vivah-db
+    databaseName: Vivah
+    user: Vivah
     plan: free

@@ -78,7 +78,7 @@ function Login() {
     <AuthLayout eyebrow="Welcome back">
       {/* Mobile brand header */}
       <div className="mb-9 lg:hidden">
-        <p className="display-font text-2xl font-bold">Saanjh</p>
+        <p className="display-font text-2xl font-bold">Vivah</p>
       </div>
 
       {/* Page Title & Subtitle */}
