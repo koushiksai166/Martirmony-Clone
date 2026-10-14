@@ -43,7 +43,12 @@ function Preferences() {
   // Fetch current saved partner preferences on mount
   useEffect(() => {
     getPreferences()
-      .then(({ data }) => setValues(data.preference || {}))
+      .then(({ data }) => {
+        const pref = data.preference || {};
+        // Enforce minimum age of 18 on load
+        if (!pref.minAge || pref.minAge < 18) pref.minAge = 18;
+        setValues(pref);
+      })
       .catch((error) =>
         toast.error(
           error.response?.data?.message || "Unable to load preferences"
@@ -55,11 +60,12 @@ function Preferences() {
   /**
    * Generic input change handler for controlled inputs
    */
-  const update = (event) =>
-    setValues((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }));
+  const update = (event) => {
+    const { name, value } = event.target;
+    // Prevent minAge from going below 18
+    if (name === "minAge" && Number(value) < 18) return;
+    setValues((current) => ({ ...current, [name]: value }));
+  };
 
   /**
    * Cleans payload, casts numeric fields, and updates preferences via API
@@ -124,7 +130,7 @@ function Preferences() {
                 </span>
                 <input
                   name={name}
-                  value={values[name] || ""}
+                  value={values[name] ?? ""}
                   onChange={update}
                   type={
                     name.includes("Age") ||
@@ -132,6 +138,9 @@ function Preferences() {
                     name.includes("Income")
                       ? "number"
                       : "text"
+                  }
+                  min={
+                    name === "minAge" || name === "maxAge" ? 18 : undefined
                   }
                   className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
                 />
