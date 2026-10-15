@@ -142,6 +142,11 @@ export class CreateProfileDto {
 
   // ---- Optional Bio & Media ----
 
+  @ApiPropertyOptional({ example: '+91 98765 43210', description: 'Phone number (visible to premium members only)' })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
   @ApiPropertyOptional({
     example: 'Passionate Full Stack Developer looking for a life partner.',
   })

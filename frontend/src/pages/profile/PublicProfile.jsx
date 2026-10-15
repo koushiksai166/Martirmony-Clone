@@ -162,6 +162,26 @@ function PublicProfile() {
                     .join(", ") || "Not provided"}
                 </dd>
               </div>
+              <div>
+                <dt className="text-sm text-slate-500">Last active</dt>
+                <dd className="font-medium">
+                  {profile.lastActiveAt
+                    ? new Date(profile.lastActiveAt).toLocaleDateString()
+                    : "Unknown"}
+                </dd>
+              </div>
+              {profile.phoneNumberVisible && (
+                <div>
+                  <dt className="text-sm text-slate-500">Phone</dt>
+                  <dd className="font-medium">{profile.phoneNumber}</dd>
+                </div>
+              )}
+              {!profile.phoneNumberVisible && (
+                <div>
+                  <dt className="text-sm text-slate-500">Phone</dt>
+                  <dd className="text-xs text-amber-600">Upgrade to Premium to view</dd>
+                </div>
+              )}
             </dl>
 
             {/* Safety Actions: Block / Report */}

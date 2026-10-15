@@ -129,30 +129,46 @@ model User {
 /// Profile: Detailed public biographical information of a matrimony candidate.
 /// Contains demographics, physical attributes, career, education, and location.
 model Profile {
-  id                String   @id @default(cuid())
+  id                String        @id @default(cuid())
   firstName         String
   lastName          String
   gender            Gender
-  dateOfBirth       DateTime // Used to calculate age dynamically in matchmaking
-  height            Int      // Stored in centimetres (e.g. 175)
-  weight            Int      // Stored in kilograms (e.g. 68)
-  religion          String?  // e.g. Hindu, Muslim, Christian, Sikh
-  caste             String?  // Optional community / sub-caste
-  motherTongue      String?  // e.g. Telugu, Hindi, Tamil, Bengali
-  education         String?  // Highest qualification (e.g. B.Tech, MBA, MBBS)
-  occupation        String?  // Current role (e.g. Software Engineer, Doctor)
-  annualIncome      Int?     // Stored in INR (e.g. 1200000 = 12 LPA)
+  dateOfBirth       DateTime      // Used to calculate age dynamically in matchmaking
+  height            Int           // Stored in centimetres (e.g. 175)
+  weight            Int           // Stored in kilograms (e.g. 68)
+  religion          String?       // e.g. Hindu, Muslim, Christian, Sikh
+  caste             String?       // Optional community / sub-caste
+  motherTongue      String?       // e.g. Telugu, Hindi, Tamil, Bengali
+  education         String?       // Highest qualification (e.g. B.Tech, MBA, MBBS)
+  occupation        String?       // Current role (e.g. Software Engineer, Doctor)
+  annualIncome      Int?          // Stored in INR (e.g. 1200000 = 12 LPA)
+  phoneNumber       String?       // Visible only to premium members
   city              String?
   state             String?
   country           String?
-  aboutMe           String?  // Personal bio / introduction paragraph
-  profilePicture    String?  // Relative URL path or Cloudinary URL
-  isProfileComplete Boolean  @default(false) // True when all 16 mandatory fields are present
-  isVerified        Boolean  @default(false) // Admin approval flag
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  aboutMe           String?       // Personal bio / introduction paragraph
+  profilePicture    String?       // Relative URL path or Cloudinary URL
+  visibilityMode    String        @default("PUBLIC") // PUBLIC | MATCHES_ONLY | HIDDEN
+  isProfileComplete Boolean       @default(false)    // True when all core mandatory fields are present
+  isVerified        Boolean       @default(false)    // Admin approval flag
+  lastActiveAt      DateTime?     // Updated on each authenticated request
+  userId            String        @unique
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  viewsReceived     ProfileView[] @relation("viewedProfile")
+}
+
+/// ProfileView: Tracks who viewed whose profile for analytics and notifications.
+model ProfileView {
+  id          String   @id @default(cuid())
+  viewerId    String   // userId of the person who viewed
+  profileId   String   // Profile that was viewed
+  viewedAt    DateTime @default(now())
+  profile     Profile  @relation("viewedProfile", fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([viewerId, profileId])  // One record per viewer-profile pair (upserted on re-view)
+  @@index([profileId, viewedAt])
 }
 
 /// PartnerPreference: Filter criteria used by the matchmaking engine.

@@ -17,10 +17,14 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProfileService } from '../profile/profile.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly profileService: ProfileService,
+  ) {}
 
   /**
    * Returns all user accounts ordered by newest first.
@@ -95,11 +99,7 @@ export class AdminService {
    * @param verified true = approved, false = rejected
    */
   async verifyProfile(id: string, verified: boolean) {
-    const profile = await this.prisma.profile.update({
-      where: { id },
-      data: { isVerified: verified },
-    });
-    return { profile };
+    return this.profileService.adminVerify(id, verified);
   }
 
   /**
