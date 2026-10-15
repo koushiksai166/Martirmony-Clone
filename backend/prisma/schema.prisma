@@ -124,6 +124,7 @@ model User {
   reportsSubmitted      Report[]            @relation("reporter")
   reportsReceived       Report[]            @relation("reported")
   payments              Payment[]
+  savedSearches         SavedSearch[]
 }
 
 /// Profile: Detailed public biographical information of a matrimony candidate.
@@ -152,11 +153,29 @@ model Profile {
   isProfileComplete Boolean       @default(false)    // True when all core mandatory fields are present
   isVerified        Boolean       @default(false)    // Admin approval flag
   lastActiveAt      DateTime?     // Updated on each authenticated request
+  latitude          Float?        // GPS latitude for radius search
+  longitude         Float?        // GPS longitude for radius search
   userId            String        @unique
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   viewsReceived     ProfileView[] @relation("viewedProfile")
+}
+
+/// SavedSearch: Persisted search filter set with optional new-match alerts.
+model SavedSearch {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String   // User-defined label e.g. "Engineers in Hyderabad"
+  filters      Json     // Serialised SearchProfilesDto filters
+  alertEnabled Boolean  @default(true)  // Send notification when new profiles match
+  lastAlertAt  DateTime? // Tracks last time alert was fired to avoid duplicates
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([alertEnabled, lastAlertAt])
 }
 
 /// ProfileView: Tracks who viewed whose profile for analytics and notifications.

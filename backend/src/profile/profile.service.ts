@@ -27,7 +27,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { SearchProfilesDto } from './dto/search-profiles.dto';
+import { SearchProfilesDto, SortBy } from './dto/search-profiles.dto';
 
 export type VisibilityMode = 'PUBLIC' | 'MATCHES_ONLY' | 'HIDDEN';
 
@@ -284,6 +284,24 @@ export class ProfileService {
       b.blockerId === userId ? b.blockedId : b.blockerId,
     );
 
+    // Radius search via raw SQL (Haversine formula)
+    let radiusProfileIds: string[] | null = null;
+    if (query.lat !== undefined && query.lng !== undefined && query.radiusKm) {
+      const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Profile"
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+          AND (
+            6371 * acos(
+              cos(radians(${query.lat})) * cos(radians(latitude))
+              * cos(radians(longitude) - radians(${query.lng}))
+              + sin(radians(${query.lat})) * sin(radians(latitude))
+            )
+          ) <= ${query.radiusKm}
+      `;
+      radiusProfileIds = rows.map((r) => r.id);
+    }
+
+    // Date-of-birth range from age filters
     const dateOfBirth: { gte?: Date; lte?: Date } = {};
     if (query.maxAge !== undefined) {
       dateOfBirth.gte = new Date(now.getFullYear() - query.maxAge - 1, now.getMonth(), now.getDate() + 1);
@@ -292,10 +310,19 @@ export class ProfileService {
       dateOfBirth.lte = new Date(now.getFullYear() - query.minAge, now.getMonth(), now.getDate());
     }
 
+    // Exclusion filters
+    const excludeCasteList = query.excludeCastes
+      ? query.excludeCastes.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+    const excludeReligionList = query.excludeReligions
+      ? query.excludeReligions.split(',').map((s) => s.trim()).filter(Boolean)
+      : [];
+
     const where: Prisma.ProfileWhereInput = {
       userId: { notIn: [userId, ...blockedUserIds] },
       isProfileComplete: true,
-      visibilityMode: { not: 'HIDDEN' }, // Exclude hidden profiles from search
+      visibilityMode: { not: 'HIDDEN' },
+      ...(radiusProfileIds !== null && { id: { in: radiusProfileIds } }),
       ...(query.gender && { gender: query.gender }),
       ...(Object.keys(dateOfBirth).length > 0 && { dateOfBirth }),
       ...(query.minHeight !== undefined || query.maxHeight !== undefined
@@ -304,6 +331,7 @@ export class ProfileService {
       ...(query.minIncome !== undefined || query.maxIncome !== undefined
         ? { annualIncome: { ...(query.minIncome !== undefined && { gte: query.minIncome }), ...(query.maxIncome !== undefined && { lte: query.maxIncome }) } }
         : {}),
+      // Fuzzy partial-match filters (case-insensitive)
       ...this.textFilter('religion', query.religion),
       ...this.textFilter('caste', query.caste),
       ...this.textFilter('motherTongue', query.motherTongue),
@@ -312,41 +340,83 @@ export class ProfileService {
       ...this.textFilter('country', query.country),
       ...this.textFilter('state', query.state),
       ...this.textFilter('city', query.city),
+      // Exclusion filters
+      ...(excludeCasteList.length > 0 && { caste: { notIn: excludeCasteList } }),
+      ...(excludeReligionList.length > 0 && { religion: { notIn: excludeReligionList } }),
+      // Full-text search across name, occupation, aboutMe, city, education
+      ...(query.q && {
+        OR: [
+          { firstName: { contains: query.q, mode: 'insensitive' } },
+          { lastName: { contains: query.q, mode: 'insensitive' } },
+          { occupation: { contains: query.q, mode: 'insensitive' } },
+          { aboutMe: { contains: query.q, mode: 'insensitive' } },
+          { city: { contains: query.q, mode: 'insensitive' } },
+          { education: { contains: query.q, mode: 'insensitive' } },
+        ],
+      }),
     };
+
+    // Sort order
+    let orderBy: Prisma.ProfileOrderByWithRelationInput;
+    switch (query.sortBy) {
+      case SortBy.NEWEST:        orderBy = { createdAt: 'desc' }; break;
+      case SortBy.DISTANCE:
+      case SortBy.COMPATIBILITY:
+      case SortBy.LAST_ACTIVE:
+      default:                   orderBy = { lastActiveAt: 'desc' };
+    }
 
     const skip = (query.page - 1) * query.limit;
 
     const select = {
-      id: true,
-      firstName: true,
-      lastName: true,
-      gender: true,
-      dateOfBirth: true,
-      height: true,
-      religion: true,
-      education: true,
-      occupation: true,
-      city: true,
-      state: true,
-      country: true,
-      profilePicture: true,
-      isVerified: true,
-      lastActiveAt: true,
+      id: true, firstName: true, lastName: true, gender: true,
+      dateOfBirth: true, height: true, religion: true, education: true,
+      occupation: true, city: true, state: true, country: true,
+      latitude: true, longitude: true, profilePicture: true,
+      isVerified: true, lastActiveAt: true, aboutMe: true,
     } as const;
 
     const [profiles, total] = await this.prisma.$transaction([
-      this.prisma.profile.findMany({ where, select, skip, take: query.limit, orderBy: { updatedAt: 'desc' } }),
+      this.prisma.profile.findMany({ where, select, skip, take: query.limit, orderBy }),
       this.prisma.profile.count({ where }),
     ]);
 
+    // Post-query distance sort
+    let sorted: any[] = profiles as any[];
+    if (query.sortBy === SortBy.DISTANCE && query.lat !== undefined && query.lng !== undefined) {
+      sorted = (profiles as any[])
+        .map((p) => ({
+          ...p,
+          distanceKm: p.latitude && p.longitude
+            ? this.haversine(query.lat!, query.lng!, p.latitude, p.longitude)
+            : null,
+        }))
+        .sort((a, b) => {
+          if (a.distanceKm === null) return 1;
+          if (b.distanceKm === null) return -1;
+          return a.distanceKm - b.distanceKm;
+        });
+    }
+
     return {
-      profiles,
+      profiles: sorted,
       pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) },
     };
   }
 
   private textFilter(field: string, value?: string) {
     return value ? { [field]: { contains: value, mode: 'insensitive' as const } } : {};
+  }
+
+  private haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   // ── Update ─────────────────────────────────────────────────────────────────

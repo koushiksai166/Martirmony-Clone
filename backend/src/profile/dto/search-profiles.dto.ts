@@ -1,38 +1,38 @@
-/**
- * ============================================================================
- * SEARCH PROFILES DTO
- * ============================================================================
- * Validates request query parameters for GET /profile/search.
- * Uses @Type(() => Number) extensively because query parameters are always parsed
- * as strings by Express, but class-validator needs them as numbers for @Min/@Max.
- *
- * Filter criteria:
- * - Pagination: page (default 1) & limit (default 20, max 50)
- * - Gender, Age range, Height range, Income range
- * - Religion, Caste, Mother Tongue, Education, Occupation
- * - Location: Country, State, City
- *
- * Validation:
- * - All fields are optional (@IsOptional) so users can filter by any combination.
- * - ProfileService handles the complex Prisma `where` clause construction and
- *   range validation (ensuring min <= max).
- * ============================================================================
- */
-
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Gender } from '@prisma/client';
 
+export enum SortBy {
+  LAST_ACTIVE = 'lastActive',
+  NEWEST = 'newest',
+  COMPATIBILITY = 'compatibility',
+  DISTANCE = 'distance',
+}
+
 export class SearchProfilesDto {
-  // ---- Core Filters ----
+  // ---- Full-text / fuzzy ----
+
+  @ApiPropertyOptional({ description: 'Full-text search across name, occupation, aboutMe' })
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  // ---- Core filters ----
 
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
 
-  // Age limits are translated to dateOfBirth ranges in the service layer
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
@@ -61,7 +61,7 @@ export class SearchProfilesDto {
   @Min(1)
   maxHeight?: number;
 
-  // ---- Cultural / Lifestyle Filters ----
+  // ---- Cultural filters ----
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -88,9 +88,24 @@ export class SearchProfilesDto {
   @IsString()
   occupation?: string;
 
+  // ---- Exclusion filters (comma-separated values) ----
+
+  @ApiPropertyOptional({ description: 'Comma-separated castes to exclude e.g. "Kamma,Reddy"' })
+  @IsOptional()
+  @IsString()
+  excludeCastes?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated religions to exclude e.g. "Christian,Sikh"' })
+  @IsOptional()
+  @IsString()
+  excludeReligions?: string;
+
+  // ---- Income ----
+
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt() // Note: missing @Type(() => Number), though Next.js query might pass string.
+  @Type(() => Number)
+  @IsInt()
   @Min(0)
   minIncome?: number;
 
@@ -101,7 +116,7 @@ export class SearchProfilesDto {
   @Min(0)
   maxIncome?: number;
 
-  // ---- Location Filters ----
+  // ---- Location filters ----
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -118,7 +133,36 @@ export class SearchProfilesDto {
   @IsString()
   city?: string;
 
-  // ---- Pagination (with sane defaults and maximums) ----
+  // ---- Radius search ----
+
+  @ApiPropertyOptional({ description: 'Viewer latitude for radius search' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lat?: number;
+
+  @ApiPropertyOptional({ description: 'Viewer longitude for radius search' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lng?: number;
+
+  @ApiPropertyOptional({ description: 'Search radius in kilometres (requires lat & lng)', default: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(500)
+  radiusKm?: number;
+
+  // ---- Sorting ----
+
+  @ApiPropertyOptional({ enum: SortBy, default: SortBy.LAST_ACTIVE })
+  @IsOptional()
+  @IsEnum(SortBy)
+  sortBy?: SortBy = SortBy.LAST_ACTIVE;
+
+  // ---- Pagination ----
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -132,6 +176,6 @@ export class SearchProfilesDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(50) // Hard cap on page size to prevent DoS via massive DB queries
+  @Max(50)
   limit = 20;
 }
