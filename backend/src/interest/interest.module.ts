@@ -8,11 +8,12 @@
 
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NotificationModule } from '../notification/notification.module';
 import { InterestController } from './interest.controller';
 import { InterestService } from './interest.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationModule],
   controllers: [InterestController],
   providers: [InterestService],
 })

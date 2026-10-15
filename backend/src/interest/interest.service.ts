@@ -17,10 +17,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InterestStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class InterestService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationService,
+  ) {}
 
   // Reusable projection to avoid exposing sensitive profile data in lists
   private readonly profileSelect = {
@@ -70,13 +74,11 @@ export class InterestService {
     });
 
     // 4. Notify the receiver
-    await this.prisma.notification.create({
-      data: {
-        userId: receiver.userId,
-        type: 'NEW_INTEREST',
-        message: 'You received a new interest',
-      },
-    });
+    await this.notifications.push(
+      receiver.userId,
+      'NEW_INTEREST',
+      'You received a new interest',
+    );
 
     return interest;
   }
@@ -149,13 +151,11 @@ export class InterestService {
 
     // Notify original sender if their request was accepted
     if (status === InterestStatus.ACCEPTED) {
-      await this.prisma.notification.create({
-        data: {
-          userId: interest.senderId,
-          type: 'INTEREST_ACCEPTED',
-          message: 'Your interest was accepted',
-        },
-      });
+      await this.notifications.push(
+        interest.senderId,
+        'INTEREST_ACCEPTED',
+        'Your interest was accepted',
+      );
     }
 
     return updated;

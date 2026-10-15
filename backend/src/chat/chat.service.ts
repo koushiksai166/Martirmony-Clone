@@ -27,13 +27,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 // In-memory online user registry: userId -> Set of socketIds
 const onlineUsers = new Map<string, Set<string>>();
 
 @Injectable()
 export class ChatService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationService,
+  ) {}
 
   // ── Online status ──────────────────────────────────────────────────────────
 
@@ -186,23 +190,21 @@ export class ChatService {
         ? conversation.secondUserId
         : conversation.firstUserId;
 
-    return this.prisma.$transaction(async (tx) => {
-      const message = await tx.message.create({
+    const [message] = await this.prisma.$transaction([
+      this.prisma.message.create({
         data: { conversationId, senderId: userId, content: trimmed },
         select: this.MESSAGE_SELECT,
-      });
-
-      await tx.conversation.update({
+      }),
+      this.prisma.conversation.update({
         where: { id: conversationId },
         data: { updatedAt: new Date() },
-      });
+      }),
+    ]);
 
-      await tx.notification.create({
-        data: { userId: recipientId, type: 'NEW_MESSAGE', message: 'You received a new message' },
-      });
+    // Push notification outside transaction so WebSocket + email fallback work
+    await this.notifications.push(recipientId, 'NEW_MESSAGE', 'You received a new message');
 
-      return { message, recipientId };
-    });
+    return { message, recipientId };
   }
 
   async markDelivered(messageId: string) {

@@ -60,6 +60,36 @@ export class EmailService {
    * This method catches and logs its own errors so that a failure here
    * doesn't abort the user registration transaction.
    */
+  async sendNotification(
+    to: string,
+    firstName: string,
+    type: string,
+    message: string,
+  ): Promise<void> {
+    if (!this.transporter) return;
+
+    const from = process.env.SMTP_FROM ?? process.env.EMAIL_USER ?? process.env.SMTP_USER;
+    const subjectMap: Record<string, string> = {
+      NEW_INTEREST: '💌 Someone is interested in you — Vivah',
+      INTEREST_ACCEPTED: '🎉 Your interest was accepted — Vivah',
+      NEW_MESSAGE: '💬 You have a new message — Vivah',
+      NEW_MATCH: '✨ New match found — Vivah',
+      PROFILE_VERIFIED: '✅ Your profile is verified — Vivah',
+    };
+    const subject = subjectMap[type] ?? '🔔 New notification — Vivah';
+
+    try {
+      await this.transporter.sendMail({
+        from: `"Vivah" <${from}>`,
+        to,
+        subject,
+        html: notificationTemplate(firstName, message),
+      });
+    } catch (err) {
+      this.logger.error(`Notification email failed for ${to}: ${(err as Error).message}`);
+    }
+  }
+
   async sendWelcome(to: string, firstName: string): Promise<void> {
     if (!this.transporter) return; // Exit silently if emails aren't configured
 
@@ -78,6 +108,36 @@ export class EmailService {
       this.logger.error(`Welcome email failed for ${to}: ${(err as Error).message}`);
     }
   }
+}
+
+function notificationTemplate(firstName: string, message: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#fdf6f0;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6f0;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">
+        <tr><td style="background:#1a1a2e;padding:28px 40px;text-align:center;">
+          <h1 style="margin:0;color:#d9ad71;font-size:28px;letter-spacing:2px;">Vivah</h1>
+        </td></tr>
+        <tr><td style="padding:36px 40px;">
+          <p style="margin:0 0 12px;color:#1a1a2e;font-size:18px;">Hi ${firstName},</p>
+          <p style="color:#555;line-height:1.7;margin:0 0 28px;font-size:15px;">${message}</p>
+          <a href="${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/notifications"
+             style="display:inline-block;background:#1a1a2e;color:#d9ad71;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;">
+            View Notifications →
+          </a>
+        </td></tr>
+        <tr><td style="padding:20px 40px;border-top:1px solid #f0e8e0;text-align:center;">
+          <p style="margin:0;color:#aaa;font-size:11px;">© ${new Date().getFullYear()} Vivah. All rights reserved.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 }
 
 /**
