@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Crown, Receipt, ShieldCheck } from "lucide-react";
+import { Check, Crown, Receipt, ShieldCheck, RefreshCw } from "lucide-react";
 import { toast } from "react-toastify";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import Card from "../../components/common/Card";
@@ -9,206 +9,255 @@ import {
   createPaymentOrder,
   getMembership,
   getPaymentHistory,
-  getPaymentPlan,
+  getPaymentPlans,
   verifyPayment,
+  retryPayment,
+  getInvoice,
+  toggleAutoRenew,
 } from "../../services/payment.service";
 
-/**
- * Membership Page Component
- *
- * Manages premium membership subscriptions & payment checkout:
- * - Fetches active membership status, available pricing plans, and past billing history.
- * - Integrates Razorpay Checkout modal for seamless payment processing.
- * - Sends payment signatures (`razorpay_order_id`, `razorpay_payment_id`, `razorpay_signature`)
- *   to the backend `/payments/verify` endpoint for secure cryptographic verification.
- * - Displays detailed transaction audit history.
- */
+const PLAN_COLORS = {
+  SILVER: "bg-slate-100 border-slate-300",
+  GOLD: "bg-amber-50 border-amber-300",
+  PLATINUM: "bg-purple-50 border-purple-300",
+};
+
+const PLAN_BADGE = {
+  SILVER: "neutral",
+  GOLD: "warning",
+  PLATINUM: "info",
+};
+
 function Membership() {
   const [membership, setMembership] = useState(null);
   const [history, setHistory] = useState([]);
-  const [plan, setPlan] = useState(null);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState("SILVER");
+  const [invoiceLoading, setInvoiceLoading] = useState(null);
+  const [retryLoading, setRetryLoading] = useState(null);
 
-  /**
-   * Fetches membership status, payment history, and pricing plan in parallel
-   */
   const load = async () => {
     try {
-      const [membershipResponse, historyResponse, planResponse] =
-        await Promise.all([
-          getMembership(),
-          getPaymentHistory(),
-          getPaymentPlan(),
-        ]);
-      setMembership(membershipResponse.data);
-      setHistory(historyResponse.data);
-      setPlan(planResponse.data);
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Unable to load membership"
-      );
+      const [membershipRes, historyRes, plansRes] = await Promise.all([
+        getMembership(),
+        getPaymentHistory(),
+        getPaymentPlans(),
+      ]);
+      setMembership(membershipRes.data);
+      setHistory(historyRes.data);
+      setPlans(plansRes.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Unable to load membership");
     } finally {
       setLoading(false);
     }
   };
 
-  // Load data on initial mount
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  /**
-   * Initiates Razorpay payment order and launches the checkout modal
-   */
-  const checkout = async () => {
+  const checkout = async (planKey) => {
     setPaying(true);
     try {
-      // 1. Create payment order on the server
-      const { data: order } = await createPaymentOrder();
+      const { data: order } = await createPaymentOrder(planKey);
+      if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable");
 
-      // Ensure Razorpay SDK script is available in browser window
-      if (!window.Razorpay) {
-        throw new Error("Razorpay Checkout is unavailable");
-      }
-
-      // 2. Configure and launch Razorpay checkout modal
       const razorpay = new window.Razorpay({
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
         name: "Vivah",
-        description: "Premium membership",
+        description: `${order.planLabel} Membership`,
         order_id: order.orderId,
         handler: async (response) => {
-          // 3. Verify signature with server upon successful transaction
           try {
             await verifyPayment({
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
             });
-            toast.success("Premium membership activated");
+            toast.success(`${order.planLabel} membership activated!`);
             await load();
-          } catch (error) {
-            toast.error(
-              error.response?.data?.message || "Payment verification failed"
-            );
+          } catch (err) {
+            toast.error(err.response?.data?.message || "Payment verification failed");
           }
         },
         theme: { color: "#a9415c" },
       });
-
       razorpay.open();
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message ||
-          error.message ||
-          "Unable to start payment"
-      );
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Unable to start payment");
     } finally {
       setPaying(false);
     }
   };
 
-  // Helper boolean checking if current user holds active premium tier
-  const active =
-    membership?.plan === "PREMIUM" && membership.status === "ACTIVE";
+  const handleRetry = async (paymentId) => {
+    setRetryLoading(paymentId);
+    try {
+      const { data: order } = await retryPayment(paymentId);
+      if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable");
+
+      const razorpay = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Vivah",
+        description: "Retry Payment",
+        order_id: order.orderId,
+        handler: async (response) => {
+          try {
+            await verifyPayment({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            toast.success("Payment successful!");
+            await load();
+          } catch (err) {
+            toast.error(err.response?.data?.message || "Verification failed");
+          }
+        },
+        theme: { color: "#a9415c" },
+      });
+      razorpay.open();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Unable to retry payment");
+    } finally {
+      setRetryLoading(null);
+    }
+  };
+
+  const handleInvoice = async (paymentId) => {
+    setInvoiceLoading(paymentId);
+    try {
+      const { data } = await getInvoice(paymentId);
+      // Open invoice in a new tab as formatted JSON (can be replaced with PDF later)
+      const win = window.open("", "_blank");
+      win.document.write(`<pre style="font-family:monospace;padding:24px">${JSON.stringify(data, null, 2)}</pre>`);
+      win.document.title = `Invoice ${data.invoiceNumber}`;
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Unable to load invoice");
+    } finally {
+      setInvoiceLoading(null);
+    }
+  };
+
+  const handleAutoRenew = async (enable) => {
+    try {
+      await toggleAutoRenew(enable);
+      setMembership((prev) => ({ ...prev, autoRenew: enable }));
+      toast.success(enable ? "Auto-renewal enabled" : "Auto-renewal disabled");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Unable to update auto-renewal");
+    }
+  };
+
+  const isActive = membership?.plan !== "FREE" && membership?.status === "ACTIVE";
 
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-5xl space-y-8">
-        {/* Header Title */}
         <div>
           <p className="eyebrow">Membership</p>
-          <h1 className="display-font mt-2 text-4xl">
-            More room for meaningful connection.
-          </h1>
+          <h1 className="display-font mt-2 text-4xl">More room for meaningful connection.</h1>
           <p className="mt-3 max-w-2xl text-[var(--ink-soft)]">
-            Premium access is verified by the server after Razorpay confirms
-            your payment.
+            Choose a plan that suits you. All plans are server-verified via Razorpay.
           </p>
         </div>
 
-        {/* Current Plan & Feature Benefits Grid */}
-        <div className="grid gap-5 lg:grid-cols-2">
-          {/* Current Plan Card */}
-          <Card className="bg-[var(--ink)] p-7 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/60">Your current plan</p>
-                <h2 className="display-font mt-2 text-3xl">
-                  {loading ? "Loading..." : active ? "Premium" : "Free"}
-                </h2>
-              </div>
-              <Crown className="text-[#d9ad71]" size={30} />
+        {/* Current plan status */}
+        <Card className="bg-[var(--ink)] p-7 text-white">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <p className="text-sm text-white/60">Your current plan</p>
+              <h2 className="display-font mt-2 text-3xl">
+                {loading ? "Loading..." : membership?.plan ?? "Free"}
+              </h2>
+              {isActive && membership?.expiresAt && (
+                <p className="mt-1 text-sm text-white/65">
+                  Active until {new Date(membership.expiresAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            <Crown className="text-[#d9ad71]" size={30} />
+          </div>
+
+          {isActive && (
+            <div className="mt-5 flex items-center gap-3">
+              <Badge tone="success">Active</Badge>
+              <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={membership?.autoRenew ?? false}
+                  onChange={(e) => handleAutoRenew(e.target.checked)}
+                  className="rounded"
+                />
+                Auto-renew
+              </label>
+            </div>
+          )}
+        </Card>
+
+        {/* Plan selector */}
+        {!loading && (
+          <div>
+            <h2 className="display-font text-2xl mb-4">Choose a plan</h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {plans.map((plan) => (
+                <button
+                  key={plan.key}
+                  onClick={() => setSelectedPlan(plan.key)}
+                  className={`rounded-xl border-2 p-5 text-left transition ${
+                    PLAN_COLORS[plan.key]
+                  } ${selectedPlan === plan.key ? "ring-2 ring-pink-500" : ""}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-lg">{plan.label}</p>
+                    <Badge tone={PLAN_BADGE[plan.key]}>{plan.key}</Badge>
+                  </div>
+                  <p className="mt-2 text-2xl font-bold">
+                    {plan.currency} {(plan.amount / 100).toFixed(0)}
+                    <span className="text-sm font-normal text-slate-500">
+                      /{plan.durationDays}d
+                    </span>
+                  </p>
+                  <ul className="mt-3 space-y-1">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
+                        <Check size={14} className="text-green-500 shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+              ))}
             </div>
 
-            <p className="mt-6 text-sm leading-6 text-white/65">
-              {active
-                ? `Active until ${
-                    membership.expiresAt
-                      ? new Date(membership.expiresAt).toLocaleDateString()
-                      : "renewal"
-                  }.`
-                : "Upgrade to unlock premium membership benefits."}
-            </p>
-
-            {active ? (
-              <div className="mt-6">
-                <Badge tone="success">Active membership</Badge>
-              </div>
-            ) : (
+            <div className="mt-4 flex items-center gap-3">
               <Button
-                onClick={checkout}
-                disabled={paying || !plan}
-                className="mt-6 bg-[#d9ad71] text-[var(--ink)] hover:bg-[#efc98d]"
+                onClick={() => checkout(selectedPlan)}
+                disabled={paying}
+                className="bg-pink-600 hover:bg-pink-700 text-white"
               >
-                {paying
-                  ? "Opening checkout..."
-                  : plan
-                  ? `Upgrade for ${plan.currency} ${(plan.amount / 100).toFixed(
-                      2
-                    )}`
-                  : "Loading plan..."}
+                {paying ? "Opening checkout..." : `Subscribe to ${selectedPlan}`}
               </Button>
-            )}
-          </Card>
+              <ShieldCheck size={16} className="text-slate-400" />
+              <span className="text-sm text-slate-500">Secured by Razorpay</span>
+            </div>
+          </div>
+        )}
 
-          {/* Premium Inclusions Card */}
-          <Card className="p-7">
-            <h2 className="display-font text-2xl">Premium includes</h2>
-            <ul className="mt-5 space-y-4 text-sm text-[var(--ink-soft)]">
-              <li className="flex gap-3">
-                <Check className="text-[var(--success)]" size={18} />
-                Advanced discovery and preferences
-              </li>
-              <li className="flex gap-3">
-                <Check className="text-[var(--success)]" size={18} />
-                More intentional introductions
-              </li>
-              <li className="flex gap-3">
-                <Check className="text-[var(--success)]" size={18} />
-                A richer way to stay connected
-              </li>
-              <li className="flex gap-3">
-                <ShieldCheck className="text-[var(--success)]" size={18} />
-                Secure, server-verified billing
-              </li>
-            </ul>
-          </Card>
-        </div>
-
-        {/* Transaction History Section */}
+        {/* Payment history */}
         <Card className="p-7">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-5">
             <Receipt className="text-[var(--rose)]" size={20} />
             <h2 className="display-font text-2xl">Payment history</h2>
           </div>
 
           {history.length ? (
-            <div className="mt-5 divide-y divide-[var(--line)]">
+            <div className="divide-y divide-[var(--line)]">
               {history.map((payment) => (
                 <div
                   key={payment.id}
@@ -217,29 +266,59 @@ function Membership() {
                   <div>
                     <p className="font-bold">
                       {payment.currency} {(payment.amount / 100).toFixed(2)}
+                      {payment.refundedAmount > 0 && (
+                        <span className="ml-2 text-xs text-red-500">
+                          (Refunded: {(payment.refundedAmount / 100).toFixed(2)})
+                        </span>
+                      )}
                     </p>
-                    <p className="text-[var(--muted)]">
-                      {new Date(payment.createdAt).toLocaleString()}
-                    </p>
+                    <p className="text-slate-500">{payment.plan} · {new Date(payment.createdAt).toLocaleString()}</p>
+                    {payment.failureReason && (
+                      <p className="text-xs text-red-500 mt-0.5">{payment.failureReason}</p>
+                    )}
                   </div>
-                  <Badge
-                    tone={
-                      payment.status === "CAPTURED"
-                        ? "success"
-                        : payment.status === "FAILED"
-                        ? "danger"
-                        : "neutral"
-                    }
-                  >
-                    {payment.status}
-                  </Badge>
+
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      tone={
+                        payment.status === "CAPTURED"
+                          ? "success"
+                          : payment.status === "FAILED"
+                          ? "danger"
+                          : payment.status === "REFUNDED"
+                          ? "warning"
+                          : "neutral"
+                      }
+                    >
+                      {payment.status}
+                    </Badge>
+
+                    {payment.status === "CAPTURED" && (
+                      <button
+                        onClick={() => handleInvoice(payment.id)}
+                        disabled={invoiceLoading === payment.id}
+                        className="text-xs text-pink-600 hover:underline disabled:opacity-50"
+                      >
+                        {invoiceLoading === payment.id ? "Loading..." : "Invoice"}
+                      </button>
+                    )}
+
+                    {payment.status === "FAILED" && (
+                      <button
+                        onClick={() => handleRetry(payment.id)}
+                        disabled={retryLoading === payment.id}
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:underline disabled:opacity-50"
+                      >
+                        <RefreshCw size={12} />
+                        {retryLoading === payment.id ? "Opening..." : "Retry"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-5 text-sm text-[var(--muted)]">
-              No payment history yet.
-            </p>
+            <p className="text-sm text-[var(--muted)]">No payment history yet.</p>
           )}
         </Card>
       </div>
@@ -248,4 +327,3 @@ function Membership() {
 }
 
 export default Membership;
-

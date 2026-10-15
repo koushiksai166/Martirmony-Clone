@@ -66,11 +66,15 @@ enum ReportReason {
 }
 
 /// Tiered monetization plans:
-/// - FREE: Basic searching, sending interest.
-/// - PREMIUM: Unlimited chat, direct contact access, prioritized match listing.
+/// - FREE:     Basic searching, sending interest.
+/// - SILVER:   Enhanced matching, unlimited interests.
+/// - GOLD:     All Silver + direct contact, priority listing.
+/// - PLATINUM: All Gold + dedicated support, profile boost.
 enum MembershipPlan {
   FREE
-  PREMIUM
+  SILVER
+  GOLD
+  PLATINUM
 }
 
 /// Status of the user's current membership subscription.
@@ -277,14 +281,16 @@ model Report {
   @@index([reportedId, resolvedAt])
 }
 
-/// Membership: User's subscription record (Free or Premium).
+/// Membership: User's subscription record.
 model Membership {
   id                     String           @id @default(cuid())
   userId                 String           @unique
   plan                   MembershipPlan   @default(FREE)
   status                 MembershipStatus @default(ACTIVE)
   startedAt              DateTime         @default(now())
-  expiresAt              DateTime?        // 30 days from purchase for Premium
+  expiresAt              DateTime?        // Duration depends on plan
+  autoRenew              Boolean          @default(false) // User opted into auto-renewal
+  renewalAttempts        Int              @default(0)     // Failed renewal retry counter
   razorpaySubscriptionId String?
   user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments               Payment[]
@@ -292,6 +298,7 @@ model Membership {
   updatedAt              DateTime         @updatedAt
 
   @@index([plan, status])
+  @@index([autoRenew, expiresAt]) // For renewal cron queries
 }
 
 /// Payment: Razorpay order & transaction verification record.
@@ -299,13 +306,16 @@ model Payment {
   id                String        @id @default(cuid())
   userId            String
   membershipId      String?
+  plan              String        @default("SILVER") // Plan key at time of purchase
   provider          String        @default("razorpay")
   providerOrderId   String        @unique // Razorpay Order ID (e.g. order_O123456789)
   providerPaymentId String?       @unique // Razorpay Payment ID (e.g. pay_P123456789)
   amount            Int           // Stored in paise (e.g. 49900 = ₹499.00)
   currency          String        @default("INR")
   status            PaymentStatus @default(CREATED)
+  refundedAmount    Int?          // Partial or full refund amount in paise
   failureReason     String?       // Populated if payment is declined or fails
+  invoiceNumber     String?       @unique // Auto-generated invoice reference
   paidAt            DateTime?     // Verification timestamp
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

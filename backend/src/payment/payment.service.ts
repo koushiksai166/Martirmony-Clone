@@ -2,19 +2,19 @@
  * ============================================================================
  * PAYMENT SERVICE
  * ============================================================================
- * Handles integration with Razorpay for premium membership subscriptions.
- * 
+ * Handles Razorpay integration for tiered membership subscriptions.
+ *
+ * Plans: SILVER (30d), GOLD (90d), PLATINUM (365d)
+ *
  * Flows:
- * 1. createOrder() – Initiates a payment order with Razorpay.
- * 2. verify()      – Frontend successfully completed payment; verifies signature
- *                    synchronously and provisions membership.
- * 3. webhook()     – Asynchronous fallback: Razorpay server calls our backend
- *                    to confirm payment capture or failure.
- * 
- * Security:
- * - HMAC SHA256 signatures are used to verify both frontend verify() payloads
- *   and backend webhook() payloads using Razorpay secrets.
- * - crypto.timingSafeEqual is used to prevent timing attacks during validation.
+ * 1. createOrder(plan)  – Initiates a Razorpay order for the chosen plan.
+ * 2. verify()           – Frontend verifies payment; provisions membership.
+ * 3. webhook()          – Razorpay server confirms capture or failure.
+ * 4. refund()           – Admin/user requests partial or full refund.
+ * 5. retry()            – Re-creates a Razorpay order for a failed payment.
+ * 6. generateInvoice()  – Returns invoice data for a captured payment.
+ * 7. toggleAutoRenew()  – User opts in/out of auto-renewal.
+ * 8. renewExpiring()    – Cron: auto-renews memberships expiring within 3 days.
  * ============================================================================
  */
 
@@ -22,22 +22,54 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PaymentStatus, Prisma } from '@prisma/client';
 import * as crypto from 'node:crypto';
 import Razorpay from 'razorpay';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
+import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { PlanKey } from './dto/create-order.dto';
+
+// ── Plan configuration ────────────────────────────────────────────────────────
+const PLANS: Record<PlanKey, { label: string; amount: number; durationDays: number; features: string[] }> = {
+  SILVER: {
+    label: 'Silver',
+    amount: Number(process.env.SILVER_PLAN_AMOUNT || 29900),
+    durationDays: 30,
+    features: ['Enhanced matching', 'Unlimited interests', 'Priority support'],
+  },
+  GOLD: {
+    label: 'Gold',
+    amount: Number(process.env.GOLD_PLAN_AMOUNT || 59900),
+    durationDays: 90,
+    features: ['All Silver benefits', 'Direct contact access', 'Priority listing', 'Profile boost'],
+  },
+  PLATINUM: {
+    label: 'Platinum',
+    amount: Number(process.env.PLATINUM_PLAN_AMOUNT || 99900),
+    durationDays: 365,
+    features: ['All Gold benefits', 'Dedicated relationship manager', 'Verified badge', 'Annual membership'],
+  },
+};
+
+const MAX_RENEWAL_ATTEMPTS = 3;
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
   private readonly razorpay?: Razorpay;
-  private readonly amount = Number(process.env.PREMIUM_PLAN_AMOUNT || 49900); // Amount in paise (499.00 INR)
   private readonly currency = process.env.PAYMENT_CURRENCY || 'INR';
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+  ) {
     if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
       this.razorpay = new Razorpay({
         key_id: process.env.RAZORPAY_KEY_ID,
@@ -46,40 +78,50 @@ export class PaymentService {
     }
   }
 
-  /**
-   * Initializes a new payment order with Razorpay.
-   * Throws if the user already has an active premium membership.
-   */
-  async createOrder(userId: string) {
-    if (!this.razorpay || !process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      throw new BadRequestException('Payment provider is not configured');
-    }
+  // ── Public plan catalogue ──────────────────────────────────────────────────
+
+  plans() {
+    return Object.entries(PLANS).map(([key, config]) => ({
+      key,
+      ...config,
+      currency: this.currency,
+    }));
+  }
+
+  // ── Create order ───────────────────────────────────────────────────────────
+
+  async createOrder(userId: string, planKey: PlanKey = PlanKey.SILVER) {
+    this.requireRazorpay();
+
+    const planConfig = PLANS[planKey];
+    if (!planConfig) throw new BadRequestException('Invalid plan selected');
 
     const membership = await this.prisma.membership.findUnique({ where: { userId } });
 
+    // Block if already on same or higher plan and still active
     if (
-      membership?.plan === 'PREMIUM' &&
+      membership &&
       membership.status === 'ACTIVE' &&
-      (!membership.expiresAt || membership.expiresAt > new Date())
+      membership.plan === planKey &&
+      membership.expiresAt &&
+      membership.expiresAt > new Date()
     ) {
-      throw new ConflictException('Premium membership is already active');
+      throw new ConflictException(`${planConfig.label} membership is already active`);
     }
 
-    // Create an order on Razorpay servers
-    const order = await this.razorpay.orders.create({
-      amount: this.amount,
+    const order = await this.razorpay!.orders.create({
+      amount: planConfig.amount,
       currency: this.currency,
-      receipt: `premium_${userId}_${Date.now()}`,
-      notes: { userId, plan: 'PREMIUM' },
+      receipt: `${planKey.toLowerCase()}_${userId}_${Date.now()}`,
+      notes: { userId, plan: planKey },
     });
 
-    // Create a corresponding pending payment record in our DB
     const payment = await this.prisma.payment.create({
       data: {
         userId,
-        membershipId: membership?.id,
+        plan: planKey,
         providerOrderId: order.id,
-        amount: this.amount,
+        amount: planConfig.amount,
         currency: this.currency,
         status: PaymentStatus.CREATED,
       },
@@ -91,13 +133,13 @@ export class PaymentService {
       currency: order.currency,
       keyId: process.env.RAZORPAY_KEY_ID,
       paymentId: payment.id,
+      plan: planKey,
+      planLabel: planConfig.label,
     };
   }
 
-  /**
-   * Synchronously verifies a payment completion reported by the frontend client.
-   * Validates the cryptographic signature to prevent spoofing.
-   */
+  // ── Verify (frontend callback) ─────────────────────────────────────────────
+
   async verify(userId: string, dto: VerifyPaymentDto) {
     const payment = await this.prisma.payment.findUnique({
       where: { providerOrderId: dto.razorpayOrderId },
@@ -107,7 +149,6 @@ export class PaymentService {
       throw new NotFoundException('Payment order not found');
     }
 
-    // Reconstruct the expected signature
     const expected = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
       .update(`${dto.razorpayOrderId}|${dto.razorpayPaymentId}`)
@@ -117,21 +158,16 @@ export class PaymentService {
       throw new UnauthorizedException('Invalid payment signature');
     }
 
-    // Provision the membership
     return this.capturePayment(dto.razorpayOrderId, dto.razorpayPaymentId);
   }
 
-  /**
-   * Asynchronous webhook handler for Razorpay server-to-server events.
-   * Processes 'payment.captured' and 'payment.failed' events.
-   * Required reading `rawBody` as Buffer in main.ts to validate HMAC.
-   */
+  // ── Webhook ────────────────────────────────────────────────────────────────
+
   async webhook(signature: string, rawBody: Buffer) {
     if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
       throw new BadRequestException('Webhook secret is not configured');
     }
 
-    // Verify webhook signature
     const expected = crypto
       .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
       .update(rawBody)
@@ -143,22 +179,13 @@ export class PaymentService {
 
     const payload = JSON.parse(rawBody.toString('utf8'));
     const eventId = payload.id;
+    if (!eventId) throw new BadRequestException('Webhook event ID is required');
 
-    if (!eventId) {
-      throw new BadRequestException('Webhook event ID is required');
-    }
-
-    // Idempotency check: Ensure we haven't processed this exact event before
     try {
       await this.prisma.paymentEvent.create({
-        data: {
-          providerEventId: eventId,
-          eventType: payload.event || 'unknown',
-          payload,
-        },
+        data: { providerEventId: eventId, eventType: payload.event || 'unknown', payload },
       });
     } catch (error) {
-      // P2002 means event already exists (we already processed it)
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         return { received: true, duplicate: true };
       }
@@ -167,38 +194,254 @@ export class PaymentService {
 
     const entity = payload.payload?.payment?.entity;
 
-    // Handle successful payment
     if (payload.event === 'payment.captured' && entity?.order_id && entity?.id) {
       await this.capturePayment(entity.order_id, entity.id);
     }
 
-    // Handle failed payment
     if (payload.event === 'payment.failed' && entity?.order_id) {
       await this.prisma.payment.updateMany({
         where: { providerOrderId: entity.order_id },
-        data: {
-          status: PaymentStatus.FAILED,
-          failureReason: entity.error_description || 'Payment failed',
-        },
+        data: { status: PaymentStatus.FAILED, failureReason: entity.error_description || 'Payment failed' },
       });
     }
 
     return { received: true };
   }
 
+  // ── Refund (partial or full) ───────────────────────────────────────────────
+
+  async refund(userId: string, paymentId: string, dto: RefundPaymentDto) {
+    this.requireRazorpay();
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, userId },
+    });
+
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== PaymentStatus.CAPTURED) {
+      throw new BadRequestException('Only captured payments can be refunded');
+    }
+    if (!payment.providerPaymentId) {
+      throw new BadRequestException('No Razorpay payment ID on record');
+    }
+
+    const refundAmount = dto.amount ?? payment.amount;
+    if (refundAmount > payment.amount) {
+      throw new BadRequestException('Refund amount exceeds original payment');
+    }
+
+    await (this.razorpay!.payments as any).refund(payment.providerPaymentId, {
+      amount: refundAmount,
+      notes: { reason: dto.reason ?? 'User requested refund' },
+    });
+
+    const updated = await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: refundAmount === payment.amount ? PaymentStatus.REFUNDED : PaymentStatus.CAPTURED,
+        refundedAmount: refundAmount,
+      },
+    });
+
+    // Expire membership if full refund
+    if (refundAmount === payment.amount && payment.membershipId) {
+      await this.prisma.membership.update({
+        where: { id: payment.membershipId },
+        data: { status: 'CANCELLED' },
+      });
+    }
+
+    return { refunded: true, refundedAmount, payment: updated };
+  }
+
+  // ── Retry failed payment ───────────────────────────────────────────────────
+
+  async retry(userId: string, paymentId: string) {
+    this.requireRazorpay();
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, userId },
+    });
+
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== PaymentStatus.FAILED) {
+      throw new BadRequestException('Only failed payments can be retried');
+    }
+
+    const planKey = (payment.plan as PlanKey) ?? PlanKey.SILVER;
+    const planConfig = PLANS[planKey];
+
+    // Create a fresh Razorpay order for the same plan
+    const order = await this.razorpay!.orders.create({
+      amount: planConfig.amount,
+      currency: this.currency,
+      receipt: `retry_${planKey.toLowerCase()}_${userId}_${Date.now()}`,
+      notes: { userId, plan: planKey, retryOf: payment.id },
+    });
+
+    const newPayment = await this.prisma.payment.create({
+      data: {
+        userId,
+        plan: planKey,
+        providerOrderId: order.id,
+        amount: planConfig.amount,
+        currency: this.currency,
+        status: PaymentStatus.CREATED,
+      },
+    });
+
+    return {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      paymentId: newPayment.id,
+      plan: planKey,
+    };
+  }
+
+  // ── Invoice generation ─────────────────────────────────────────────────────
+
+  async generateInvoice(userId: string, paymentId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, userId },
+      include: {
+        user: {
+          select: {
+            email: true,
+            profile: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== PaymentStatus.CAPTURED) {
+      throw new BadRequestException('Invoice only available for successful payments');
+    }
+
+    // Generate invoice number if not already set
+    let invoiceNumber = payment.invoiceNumber;
+    if (!invoiceNumber) {
+      invoiceNumber = `INV-${new Date().getFullYear()}-${payment.id.slice(-8).toUpperCase()}`;
+      await this.prisma.payment.update({
+        where: { id: paymentId },
+        data: { invoiceNumber },
+      });
+    }
+
+    const planConfig = PLANS[payment.plan as PlanKey] ?? PLANS.SILVER;
+
+    return {
+      invoiceNumber,
+      issuedAt: payment.paidAt ?? payment.createdAt,
+      customer: {
+        name: payment.user.profile
+          ? `${payment.user.profile.firstName} ${payment.user.profile.lastName}`
+          : 'Valued Customer',
+        email: payment.user.email,
+      },
+      item: {
+        description: `Vivah ${planConfig.label} Membership`,
+        durationDays: planConfig.durationDays,
+        amount: payment.amount,
+        currency: payment.currency,
+      },
+      amountPaid: payment.amount,
+      refundedAmount: payment.refundedAmount ?? 0,
+      currency: payment.currency,
+      providerPaymentId: payment.providerPaymentId,
+      providerOrderId: payment.providerOrderId,
+    };
+  }
+
+  // ── Auto-renew toggle ──────────────────────────────────────────────────────
+
+  async toggleAutoRenew(userId: string, enable: boolean) {
+    const membership = await this.prisma.membership.findUnique({ where: { userId } });
+    if (!membership) throw new NotFoundException('No membership found');
+
+    return this.prisma.membership.update({
+      where: { userId },
+      data: { autoRenew: enable, renewalAttempts: enable ? 0 : membership.renewalAttempts },
+    });
+  }
+
+  // ── Auto-renew cron ────────────────────────────────────────────────────────
+
   /**
-   * Returns the user's payment history.
+   * Runs daily: finds memberships expiring within 3 days with autoRenew=true
+   * and creates a new Razorpay order for them (up to MAX_RENEWAL_ATTEMPTS).
    */
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  async renewExpiring() {
+    if (!this.razorpay) return;
+
+    const threeDaysFromNow = new Date();
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+
+    const expiring = await this.prisma.membership.findMany({
+      where: {
+        autoRenew: true,
+        status: 'ACTIVE',
+        expiresAt: { lte: threeDaysFromNow, gt: new Date() },
+        renewalAttempts: { lt: MAX_RENEWAL_ATTEMPTS },
+      },
+      include: { user: { select: { email: true, profile: { select: { firstName: true } } } } },
+    });
+
+    for (const membership of expiring) {
+      try {
+        const planKey = (membership.plan as PlanKey) ?? PlanKey.SILVER;
+        const planConfig = PLANS[planKey];
+
+        const order = await this.razorpay.orders.create({
+          amount: planConfig.amount,
+          currency: this.currency,
+          receipt: `renew_${planKey.toLowerCase()}_${membership.userId}_${Date.now()}`,
+          notes: { userId: membership.userId, plan: planKey, renewal: 'true' },
+        });
+
+        await this.prisma.payment.create({
+          data: {
+            userId: membership.userId,
+            membershipId: membership.id,
+            plan: planKey,
+            providerOrderId: order.id,
+            amount: planConfig.amount,
+            currency: this.currency,
+            status: PaymentStatus.CREATED,
+          },
+        });
+
+        await this.prisma.membership.update({
+          where: { id: membership.id },
+          data: { renewalAttempts: { increment: 1 } },
+        });
+
+        this.logger.log(`Renewal order created for user ${membership.userId}`);
+      } catch (err) {
+        this.logger.error(`Renewal failed for membership ${membership.id}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // ── History & membership status ────────────────────────────────────────────
+
   async history(userId: string) {
     return this.prisma.payment.findMany({
       where: { userId },
       select: {
         id: true,
+        plan: true,
         providerOrderId: true,
         providerPaymentId: true,
         amount: true,
         currency: true,
         status: true,
+        refundedAmount: true,
+        invoiceNumber: true,
+        failureReason: true,
         paidAt: true,
         createdAt: true,
       },
@@ -206,83 +449,74 @@ export class PaymentService {
     });
   }
 
-  /**
-   * Returns the user's current membership status.
-   */
   async membership(userId: string) {
     return this.prisma.membership.findUnique({
       where: { userId },
-      select: { plan: true, status: true, startedAt: true, expiresAt: true },
+      select: { plan: true, status: true, startedAt: true, expiresAt: true, autoRenew: true },
     });
   }
 
-  /**
-   * Returns details about the Premium plan.
-   */
-  plan() {
-    return { amount: this.amount, currency: this.currency, plan: 'PREMIUM', durationDays: 30 };
-  }
+  // ── Internal helpers ───────────────────────────────────────────────────────
 
-  /**
-   * Internal transactional helper to mark a payment as captured
-   * and UPSERT the user's Premium membership (valid for 30 days).
-   */
   private async capturePayment(orderId: string, paymentId: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { providerOrderId: orderId },
     });
 
-    if (!payment) {
-      throw new NotFoundException('Payment order not found');
-    }
+    if (!payment) throw new NotFoundException('Payment order not found');
+
+    const planKey = (payment.plan as PlanKey) ?? PlanKey.SILVER;
+    const planConfig = PLANS[planKey];
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30-day premium duration
+    expiresAt.setDate(expiresAt.getDate() + planConfig.durationDays);
+
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${payment.id.slice(-8).toUpperCase()}`;
 
     return this.prisma.$transaction(async (tx) => {
-      // Upsert membership record
       const membership = await tx.membership.upsert({
         where: { userId: payment.userId },
         create: {
           userId: payment.userId,
-          plan: 'PREMIUM',
+          plan: planKey as any,
           status: 'ACTIVE',
           expiresAt,
+          renewalAttempts: 0,
         },
         update: {
-          plan: 'PREMIUM',
+          plan: planKey as any,
           status: 'ACTIVE',
           startedAt: new Date(),
           expiresAt,
+          renewalAttempts: 0,
         },
       });
 
-      // Update payment record to CAPTURED
       const updated = await tx.payment.update({
         where: { id: payment.id },
         data: {
           membershipId: membership.id,
           providerPaymentId: paymentId,
           status: PaymentStatus.CAPTURED,
+          invoiceNumber,
           paidAt: new Date(),
         },
       });
 
       return {
         message: 'Payment verified and membership activated',
-        payment: { id: updated.id, status: updated.status },
-        membership: {
-          plan: membership.plan,
-          status: membership.status,
-          expiresAt: membership.expiresAt,
-        },
+        payment: { id: updated.id, status: updated.status, invoiceNumber },
+        membership: { plan: membership.plan, status: membership.status, expiresAt: membership.expiresAt },
       };
     });
   }
 
-  /**
-   * Secure signature comparison helper (prevents timing attacks).
-   */
+  private requireRazorpay() {
+    if (!this.razorpay || !process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      throw new BadRequestException('Payment provider is not configured');
+    }
+  }
+
   private signaturesMatch(expected: string, received?: string): boolean {
     if (!received || expected.length !== received.length) return false;
     return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
