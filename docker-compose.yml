@@ -31,10 +31,26 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
       PREMIUM_PLAN_AMOUNT: ${PREMIUM_PLAN_AMOUNT:-49900}
+      SILVER_PLAN_AMOUNT: ${SILVER_PLAN_AMOUNT:-29900}
+      GOLD_PLAN_AMOUNT: ${GOLD_PLAN_AMOUNT:-59900}
+      PLATINUM_PLAN_AMOUNT: ${PLATINUM_PLAN_AMOUNT:-99900}
       PAYMENT_CURRENCY: ${PAYMENT_CURRENCY:-INR}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@vivah.com}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AGORA_APP_ID: ${AGORA_APP_ID:-}
+      AGORA_APP_CERTIFICATE: ${AGORA_APP_CERTIFICATE:-}
     ports:
       - "${BACKEND_PORT:-5001}:5001"
+    volumes:
+      - ./backend/uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy

@@ -142,7 +142,7 @@ function Search() {
   };
 
   const handleLoadSaved = (saved) => {
-    const f = saved.filters as Record<string, any>;
+    const f = saved.filters;
     setFilters(f);
     setParams(Object.fromEntries(Object.entries(f).filter(([, v]) => v)));
   };

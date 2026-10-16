@@ -10,10 +10,14 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
+  Users,
+  BadgeCheck,
 } from "lucide-react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Avatar from "../components/ui/Avatar";
+import PanicButton from "../components/safety/PanicButton";
 
 // Navigation routes configuration: [path, label, LucideIcon]
 const links = [
@@ -26,6 +30,8 @@ const links = [
   ["/profile", "My profile", UserRound],
   ["/preferences", "Preferences", Settings],
   ["/membership", "Premium", Crown],
+  ["/family", "Family", Users],
+  ["/verification", "Verify ID", BadgeCheck],
 ];
 
 /**
@@ -41,6 +47,7 @@ const links = [
  */
 function DashboardLayout({ children }) {
   const { user, profile, logout } = useAuth();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Determine display name (prefer profile first/last name, fallback to user email)
   const name = profile
@@ -110,7 +117,7 @@ function DashboardLayout({ children }) {
           </div>
           <button
             type="button"
-            onClick={logout}
+            onClick={() => setShowLogoutModal(true)}
             className="btn-quiet mt-4 w-full justify-start"
           >
             <LogOut size={17} /> Sign out
@@ -143,6 +150,35 @@ function DashboardLayout({ children }) {
           {children}
         </main>
       </div>
+
+      {/* Panic Button — visible on all authenticated pages */}
+      <PanicButton />
+
+      {/* Sign-out confirmation modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--surface)] p-6 shadow-xl">
+            <p className="text-base font-bold text-[var(--ink)]">Sign out?</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Are you sure you want to sign out?</p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowLogoutModal(false); logout(); }}
+                className="btn-primary flex-1"
+              >
+                Yes, sign out
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                className="btn-quiet flex-1 justify-center"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Bottom Navigation Bar (visible on small screens) */}
       <nav

@@ -1,37 +1,26 @@
 import api from "./api";
 
-/**
- * Safety & Trust Service
- *
- * Provides API client methods for user protection, blocking, and incident reporting.
- */
-
-/**
- * Blocks a specific user to prevent them from seeing profile or sending messages/interests.
- * @param {string} userId - ID of the user to block
- * @returns {Promise<AxiosResponse>} Block confirmation
- */
+// ── Block / Unblock ──────────────────────────────────────────────────────────
 export const blockUser = (userId) => api.post(`/safety/blocks/${userId}`);
-
-/**
- * Unblocks a previously blocked user.
- * @param {string} userId - ID of the user to unblock
- * @returns {Promise<AxiosResponse>} Unblock confirmation
- */
 export const unblockUser = (userId) => api.delete(`/safety/blocks/${userId}`);
-
-/**
- * Fetches the list of all users blocked by the authenticated user.
- * @returns {Promise<AxiosResponse>} Array of blocked user records
- */
 export const getBlockedUsers = () => api.get("/safety/blocks");
 
-/**
- * Submits an abuse/harassment/fake profile report against a user.
- * @param {string} userId - ID of the reported user
- * @param {object} data - Report details (reason, description)
- * @returns {Promise<AxiosResponse>} Submitted report record
- */
-export const reportUser = (userId, data) =>
-  api.post(`/safety/reports/${userId}`, data);
+// ── Reports ──────────────────────────────────────────────────────────────────
+export const reportUser = (userId, data) => api.post(`/safety/reports/${userId}`, data);
 
+// ── Panic Button ─────────────────────────────────────────────────────────────
+export const triggerPanic = (data) => api.post("/safety/panic", data);
+export const getPanicAlerts = () => api.get("/safety/panic");
+
+// ── Background Verification ──────────────────────────────────────────────────
+export const requestVerification = (data) => api.post("/safety/verification", data);
+export const getVerificationStatus = () => api.get("/safety/verification");
+
+// ── Family Linking ───────────────────────────────────────────────────────────
+export const requestFamilyLink = (data) => api.post("/safety/family", data);
+export const getFamilyLinks = () => api.get("/safety/family");
+export const respondFamilyLink = (linkId, accept) => api.patch(`/safety/family/${linkId}`, { accept });
+export const removeFamilyLink = (linkId) => api.delete(`/safety/family/${linkId}`);
+
+// ── Video Call ────────────────────────────────────────────────────────────────
+export const getVideoToken = (conversationId) => api.post(`/safety/video-token/${conversationId}`);

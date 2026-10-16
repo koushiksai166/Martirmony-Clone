@@ -1,0 +1,30 @@
+# Development override — mounts source code for hot-reload.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: build          # stop at the build stage (has devDeps + ts-node)
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./backend/src:/app/src                    # live TypeScript source
+      - ./backend/prisma:/app/prisma              # schema & migrations
+      - ./backend/uploads:/app/uploads            # persisted uploads
+      - /app/node_modules                         # keep container node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      target: build          # stop at the build stage (has Vite + devDeps)
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+    volumes:
+      - ./frontend/src:/app/src                   # live React source
+      - ./frontend/public:/app/public
+      - /app/node_modules                         # keep container node_modules

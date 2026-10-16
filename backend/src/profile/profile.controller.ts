@@ -12,7 +12,8 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
 
-import { ProfileService, VisibilityMode } from './profile.service';
+import { ProfileService } from './profile.service';
+import type { VisibilityMode } from './profile.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { SearchProfilesDto } from './dto/search-profiles.dto';

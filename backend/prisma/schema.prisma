@@ -65,6 +65,21 @@ enum ReportReason {
   OTHER
 }
 
+/// Status of a background identity verification request.
+enum VerificationStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+/// Family account link request lifecycle.
+enum FamilyLinkStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 /// Tiered monetization plans:
 /// - FREE:     Basic searching, sending interest.
 /// - SILVER:   Enhanced matching, unlimited interests.
@@ -125,6 +140,10 @@ model User {
   reportsReceived       Report[]            @relation("reported")
   payments              Payment[]
   savedSearches         SavedSearch[]
+  panicAlerts           PanicAlert[]
+  verificationRequest   VerificationRequest?
+  familyLinksRequested  FamilyLink[]        @relation("familyRequester")
+  familyLinksReceived   FamilyLink[]        @relation("familyTarget")
 }
 
 /// Profile: Detailed public biographical information of a matrimony candidate.
@@ -308,6 +327,8 @@ model Report {
   reason     ReportReason
   details    String?      // Optional descriptive context provided by reporter
   resolvedAt DateTime?    // Null while pending admin investigation
+  aiFlag     Boolean      @default(false)  // Flagged by AI content moderation
+  aiScore    Float?       // AI moderation confidence score (0.0 - 1.0)
   createdAt  DateTime     @default(now())
   reporter   User         @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
   reported   User         @relation("reported", fields: [reportedId], references: [id], onDelete: Cascade)
@@ -334,6 +355,51 @@ model Membership {
 
   @@index([plan, status])
   @@index([autoRenew, expiresAt]) // For renewal cron queries
+}
+
+/// PanicAlert: Emergency distress signal raised by a user during an unsafe interaction.
+model PanicAlert {
+  id          String   @id @default(cuid())
+  userId      String
+  message     String?  // Optional context from the user
+  location    String?  // Optional GPS or city hint
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([resolvedAt])
+}
+
+/// VerificationRequest: Background identity check submitted by a user.
+model VerificationRequest {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  documentType String             // e.g. AADHAAR, PASSPORT, PAN
+  documentUrl  String             // Uploaded document URL
+  status       VerificationStatus @default(PENDING)
+  providerRef  String?            // External verification provider reference ID
+  notes        String?            // Admin or provider notes
+  reviewedAt   DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// FamilyLink: Connects a parent/guardian account to a candidate's account.
+model FamilyLink {
+  id          String           @id @default(cuid())
+  requesterId String           // The person sending the link request
+  targetId    String           // The candidate whose account is being linked
+  relation    String           // e.g. Father, Mother, Brother, Sister
+  status      FamilyLinkStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  requester   User             @relation("familyRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  target      User             @relation("familyTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, targetId])
+  @@index([targetId, status])
 }
 
 /// Payment: Razorpay order & transaction verification record.

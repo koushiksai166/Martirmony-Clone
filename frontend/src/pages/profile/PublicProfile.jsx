@@ -5,6 +5,8 @@ import DashboardLayout from "../../layouts/DashboardLayout";
 import Avatar from "../../components/ui/Avatar";
 import { getPublicProfile } from "../../services/search.service";
 import { blockUser, reportUser } from "../../services/safety.service";
+import ProtectedImage from "../../components/safety/ProtectedImage";
+import useScreenshotDeterrent from "../../hooks/useScreenshotDeterrent";
 
 /**
  * PublicProfile Page
@@ -26,14 +28,11 @@ import { blockUser, reportUser } from "../../services/safety.service";
  * - `id` — the unique matrimonial profile ID to view (from `/profile/:id` route)
  */
 function PublicProfile() {
-  // Extract profile ID from URL params (e.g. /profile/abc123)
   const { id } = useParams();
-
-  // Fetched public profile data
   const [profile, setProfile] = useState(null);
-
-  // Loading state while fetching profile from API
   const [loading, setLoading] = useState(true);
+
+  useScreenshotDeterrent(true);
 
   /**
    * Blocks the viewed user, preventing future contact and hiding profiles.
@@ -102,11 +101,21 @@ function PublicProfile() {
           <section className="rounded-xl bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-center gap-5">
-                <Avatar
-                  src={profile.profilePicture}
-                  name={`${profile.firstName} ${profile.lastName}`}
-                  size="lg"
-                />
+                <div className="protected-content">
+                  {profile.profilePicture ? (
+                    <ProtectedImage
+                      src={profile.profilePicture}
+                      alt={`${profile.firstName} ${profile.lastName}`}
+                      className="h-20 w-20 rounded-full object-cover"
+                    />
+                  ) : (
+                    <Avatar
+                      src={profile.profilePicture}
+                      name={`${profile.firstName} ${profile.lastName}`}
+                      size="lg"
+                    />
+                  )}
+                </div>
                 <div>
                   <h1 className="text-3xl font-bold">
                     {profile.firstName} {profile.lastName}

@@ -96,6 +96,8 @@ function Login() {
         <label className="block">
           <span className="field-label">Email address</span>
           <input
+            id="email"
+            name="email"
             className="field-input mt-2"
             type="email"
             autoComplete="email"
@@ -112,6 +114,8 @@ function Login() {
           <span className="field-label">Password</span>
           <span className="relative mt-2 block">
             <input
+              id="password"
+              name="password"
               className="field-input pr-12"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"

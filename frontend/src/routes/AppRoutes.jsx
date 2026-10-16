@@ -32,6 +32,8 @@ import Messages from "../pages/messages/Messages";
 import Notifications from "../pages/notifications/Notifications";
 import Admin from "../pages/admin/Admin";
 import Membership from "../pages/membership/Membership";
+import Family from "../pages/family/Family";
+import Verification from "../pages/verification/Verification";
 
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -116,6 +118,8 @@ function AppRoutes() {
         {/* Administration & Billing */}
         <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         <Route path="/membership" element={<ProtectedRoute><Membership /></ProtectedRoute>} />
+        <Route path="/family" element={<ProtectedRoute><Family /></ProtectedRoute>} />
+        <Route path="/verification" element={<ProtectedRoute><Verification /></ProtectedRoute>} />
         
         {/* Public Profile View (Requires auth to view others) */}
         <Route path="/profile/:id" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />

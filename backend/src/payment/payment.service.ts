@@ -127,11 +127,14 @@ export class PaymentService {
       },
     });
 
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    if (!keyId) throw new BadRequestException('Payment provider is not configured');
+
     return {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID,
+      keyId,
       paymentId: payment.id,
       plan: planKey,
       planLabel: planConfig.label,
@@ -251,7 +254,7 @@ export class PaymentService {
       });
     }
 
-    return { refunded: true, refundedAmount, payment: updated };
+    return { refunded: true, refundedAmount: refundAmount, payment: updated };
   }
 
   // ── Retry failed payment ───────────────────────────────────────────────────
@@ -290,11 +293,14 @@ export class PaymentService {
       },
     });
 
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    if (!keyId) throw new BadRequestException('Payment provider is not configured');
+
     return {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID,
+      keyId,
       paymentId: newPayment.id,
       plan: planKey,
     };

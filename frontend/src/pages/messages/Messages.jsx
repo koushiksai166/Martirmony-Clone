@@ -11,6 +11,8 @@ import {
 import { toast } from "react-toastify";
 import { useSocket } from "../../hooks/useSocket";
 import { useAuth } from "../../hooks/useAuth";
+import VideoCallModal from "../../components/safety/VideoCallModal";
+import { Video } from "lucide-react";
 
 function Messages() {
   const [conversations, setConversations] = useState([]);
@@ -22,6 +24,7 @@ function Messages() {
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [editingId, setEditingId] = useState(null);
   const [editContent, setEditContent] = useState("");
+  const [videoCall, setVideoCall] = useState(false);
 
   const socket = useSocket();
   const { user } = useAuth();
@@ -304,6 +307,12 @@ function Messages() {
                             {isOnline ? "Online" : "Offline"}
                           </p>
                         </div>
+                        <button
+                          onClick={() => setVideoCall(true)}
+                          className="ml-auto flex items-center gap-1.5 rounded-lg bg-pink-50 px-3 py-1.5 text-xs font-semibold text-pink-600 hover:bg-pink-100 transition"
+                        >
+                          <Video size={14} /> Video Call
+                        </button>
                       </div>
                     );
                   })()}
@@ -409,6 +418,18 @@ function Messages() {
           </div>
         )}
       </div>
+
+      {videoCall && active && (() => {
+        const p = other(active);
+        const name = p ? `${p.firstName} ${p.lastName}` : "Member";
+        return (
+          <VideoCallModal
+            conversationId={active.id}
+            otherName={name}
+            onClose={() => setVideoCall(false)}
+          />
+        );
+      })()}
     </DashboardLayout>
   );
 }

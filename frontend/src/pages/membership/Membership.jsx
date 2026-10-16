@@ -57,11 +57,28 @@ function Membership() {
 
   useEffect(() => { load(); }, []);
 
+  const loadRazorpay = () =>
+    new Promise((resolve, reject) => {
+      if (window.Razorpay) return resolve();
+      // Remove any broken existing script tag first
+      document.querySelectorAll('script[src*="checkout.razorpay.com"]').forEach((s) => s.remove());
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => {
+        if (window.Razorpay) resolve();
+        else reject(new Error("Razorpay script loaded but window.Razorpay is undefined. It may be blocked by an ad blocker or CSP."));
+      };
+      script.onerror = () => reject(new Error("Failed to load Razorpay. Check your network or disable ad blockers."));
+      document.body.appendChild(script);
+    });
+
   const checkout = async (planKey) => {
     setPaying(true);
     try {
+      await loadRazorpay();
       const { data: order } = await createPaymentOrder(planKey);
       if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable");
+      if (!order.keyId) throw new Error("Payment provider is not configured");
 
       const razorpay = new window.Razorpay({
         key: order.keyId,
@@ -96,8 +113,10 @@ function Membership() {
   const handleRetry = async (paymentId) => {
     setRetryLoading(paymentId);
     try {
+      await loadRazorpay();
       const { data: order } = await retryPayment(paymentId);
       if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable");
+      if (!order.keyId) throw new Error("Payment provider is not configured");
 
       const razorpay = new window.Razorpay({
         key: order.keyId,

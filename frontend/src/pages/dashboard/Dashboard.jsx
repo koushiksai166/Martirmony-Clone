@@ -47,7 +47,7 @@ function Dashboard() {
       .then(([matchResponse, interestResponse, notificationResponse]) => {
         setMatches(matchResponse.data.matches || []);
         setInterests(interestResponse.data || []);
-        setNotifications(notificationResponse.data || []);
+        setNotifications(notificationResponse.data?.items || notificationResponse.data || []);
       })
       .catch((error) =>
         toast.error(

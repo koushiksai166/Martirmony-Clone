@@ -99,6 +99,8 @@ function Register() {
         <label className="block">
           <span className="field-label">Profile created for</span>
           <select
+            id="profileFor"
+            name="profileFor"
             className="field-input mt-2"
             value={formData.profileFor}
             onChange={(e) =>
@@ -118,6 +120,8 @@ function Register() {
           <label className="block">
             <span className="field-label">First name</span>
             <input
+              id="firstName"
+              name="firstName"
               className="field-input mt-2"
               value={formData.firstName}
               onChange={(e) =>
@@ -129,6 +133,8 @@ function Register() {
           <label className="block">
             <span className="field-label">Last name</span>
             <input
+              id="lastName"
+              name="lastName"
               className="field-input mt-2"
               value={formData.lastName}
               onChange={(e) =>
@@ -143,6 +149,8 @@ function Register() {
         <label className="block">
           <span className="field-label">Email address</span>
           <input
+            id="email"
+            name="email"
             className="field-input mt-2"
             type="email"
             autoComplete="email"
@@ -159,6 +167,8 @@ function Register() {
           <span className="field-label">Password</span>
           <span className="relative mt-2 block">
             <input
+              id="password"
+              name="password"
               className="field-input pr-12"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
@@ -184,6 +194,8 @@ function Register() {
           <span className="field-label">Confirm password</span>
           <span className="relative mt-2 block">
             <input
+              id="confirmPassword"
+              name="confirmPassword"
               className="field-input pr-12"
               type={showConfirmPassword ? "text" : "password"}
               autoComplete="new-password"
